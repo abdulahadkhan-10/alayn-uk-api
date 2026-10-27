@@ -1,0 +1,32 @@
+name: Deploy Backend API
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            echo "==> Updating backend repository..."
+            cd /opt/apps/projects/ALAYN/backend
+            git pull origin main
+
+            echo "==> Building and deploying backend container..."
+            cd /opt/apps/projects/ALAYN
+            docker compose up -d --build alayn-api
+
+            echo "==> Running Prisma database migrations..."
+            docker exec alayn-api npx prisma migrate deploy
+
+            echo "==> Cleaning up unused Docker images..."
+            docker image prune -f
