@@ -177,7 +177,68 @@ export class AuthService {
     };
   }
 
-  async login(email: string, password: string, ctx: SessionContext = {}): Promise<IssuedLogin> {
+  async registerSupplier(
+    data: {
+      user: {
+        name: string;
+        email: string;
+        password: string;
+        phoneNo: string;
+      };
+      supplier: {
+        name: string;
+        contactPerson: string;
+        address: string;
+        category?: string;
+        gstNumber?: string;
+        deliveryTerms?: string;
+      };
+    },
+    ctx: SessionContext = {}
+  ): Promise<IssuedLogin & { supplier: any }> {
+    const email = normalizeEmail(data.user.email);
+
+    const existingUser = await this.authRepository.findUserByEmail(email);
+    if (existingUser) {
+      throw new AppError('EMAIL_ALREADY_EXISTS', 'Email already exists.', 409);
+    }
+
+    const passwordHash = await bcrypt.hash(data.user.password, BCRYPT_COST);
+
+    let created;
+    try {
+      created = await this.authRepository.registerSupplier({
+        user: {
+          name: data.user.name,
+          email,
+          passwordHash,
+          phoneNo: data.user.phoneNo,
+        },
+        supplier: data.supplier,
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new AppError('EMAIL_ALREADY_EXISTS', 'Email already exists.', 409);
+      }
+      throw err;
+    }
+
+    const { user, supplier } = created;
+    const session = await this.openSession(user, ctx);
+    return {
+      ...session,
+      supplier: {
+        id: supplier.id,
+        name: supplier.name,
+        contactPerson: supplier.contactPerson,
+        email: supplier.email,
+        phone: supplier.phone,
+        category: supplier.category,
+      },
+    };
+  }
+
+  async login(email: string, password: string, ctx: SessionContext = {}, allowedRoles?: string[]): Promise<IssuedLogin> {
     const user = await this.authRepository.findUserByEmail(normalizeEmail(email));
 
     // Always run one bcrypt comparison and give one answer, so the response never reveals
@@ -191,6 +252,15 @@ export class AuthService {
     // Only someone who proved they own the account is told it is disabled.
     if (user.isActive === false) {
       throw new AppError('ACCOUNT_DISABLED', 'Your account has been deactivated. Please contact your manager.', 403);
+    }
+
+    // Refused before a session is opened, so no cookies are set and no other session is replaced
+    if (allowedRoles && !allowedRoles.includes(user.role)) {
+      throw new AppError(
+        'WRONG_PORTAL',
+        'This account is not a supplier account. The Supplier Portal is only for vendors and suppliers. To access your restaurant, please open Alayn Restaurant OS.',
+        403
+      );
     }
 
     // Quietly upgrade older, cheaper password hashes the first time their owner signs in
@@ -264,6 +334,10 @@ export class AuthService {
     if (!user) {
       throw new AppError('USER_NOT_FOUND', 'User not found', 404);
     }
+    let supplier = null;
+    if (user.role === 'SUPPLIER') {
+      supplier = await this.authRepository.findSupplierByUserId(userId);
+    }
     return {
       id: user.id,
       email: user.email,
@@ -273,6 +347,7 @@ export class AuthService {
       createdAt: user.createdAt,
       business: user.business,
       businessOwner: user.businessOwner,
+      supplier,
     };
   }
 

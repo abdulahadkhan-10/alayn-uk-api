@@ -20,6 +20,7 @@ import mediaRoutes from './media.routes';
 import subscriptionRoutes from '../modules/subscription/subscription.routes';
 import adminRoutes from '../modules/admin/admin.routes';
 import restaurantCouponRoutes from '../modules/restaurant-coupons/restaurant-coupon.routes';
+import supplierRoutes from '../modules/suppliers/supplier.routes';
 
 const router = Router();
 
@@ -49,5 +50,6 @@ router.use('/media', mediaRoutes);
 router.use('/tickets', ticketRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/subscriptions', subscriptionRoutes);
+router.use('/suppliers', supplierRoutes);
 
 export default router;

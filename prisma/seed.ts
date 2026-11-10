@@ -29,6 +29,7 @@ async function main() {
   await prisma.recipe.deleteMany();
   await prisma.purchaseOrderItem.deleteMany();
   await prisma.purchaseOrder.deleteMany();
+  await prisma.supplierItem.deleteMany();
   await prisma.supplier.deleteMany();
   await prisma.item.deleteMany();
   await prisma.orderItem.deleteMany();
@@ -429,8 +430,9 @@ async function main() {
       }
 
       // --- Suppliers Seeding ---
+      const createdSuppliers: { id: string }[] = [];
       for (const supTpl of suppliersTemplate) {
-        await prisma.supplier.create({
+        const sup = await prisma.supplier.create({
           data: {
             outletId: outlet.id,
             name: `${supTpl.name} (${oData.city})`,
@@ -439,8 +441,11 @@ async function main() {
             email: supTpl.email,
             address: supTpl.address,
             category: supTpl.category,
+            rating: 4.8,
+            deliveryTerms: "Same/Next day delivery. Min order ₹1,500.",
           },
         });
+        createdSuppliers.push(sup);
         totalSuppliersCreated++;
       }
 
@@ -461,6 +466,25 @@ async function main() {
         });
         createdItemsMap[itemTpl.key] = item;
         totalInventoryItemsCreated++;
+
+        // Wholesale catalog items from suppliers, for the marketplace and price comparison
+        if (createdSuppliers.length > 0) {
+          const sup = createdSuppliers[totalInventoryItemsCreated % createdSuppliers.length];
+          await prisma.supplierItem.create({
+            data: {
+              supplierId: sup.id,
+              name: itemTpl.name,
+              sku: `SUP-${itemTpl.skuPrefix}`,
+              category: itemTpl.category,
+              unit: itemTpl.unit,
+              pricePaise: Math.round(itemTpl.unitCostPaise * 0.88), // 12% below the outlet's cost price
+              minOrderQty: 5,
+              inStock: true,
+              leadTimeHours: 24,
+              description: `Wholesale direct supply for ${itemTpl.name}.`,
+            },
+          });
+        }
 
         await prisma.stockBatch.create({
           data: {

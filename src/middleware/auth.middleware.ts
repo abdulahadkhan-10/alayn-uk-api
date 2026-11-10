@@ -35,7 +35,7 @@ declare global {
 }
 
 /**
- * Pulls the access token from the right cookie for the calling app (customer or admin console),
+ * Pulls the access token from the right cookie for the calling app (customer, supplier portal or admin console),
  * falling back to an Authorization header for non-browser clients.
  */
 export function readAccessToken(req: Request): string | undefined {
@@ -43,7 +43,7 @@ export function readAccessToken(req: Request): string | undefined {
   let token: string | undefined =
     portal === 'admin'
       ? req.cookies?.[ACCESS_COOKIE.admin] || req.cookies?.[ACCESS_COOKIE.tenant]
-      : req.cookies?.[ACCESS_COOKIE.tenant];
+      : req.cookies?.[ACCESS_COOKIE[portal]];
 
   if (!token) {
     const authHeader = req.headers.authorization;
@@ -85,12 +85,27 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       return next(new AppError('ACCOUNT_DISABLED', 'Your account has been deactivated. Please contact your manager.', 401));
     }
 
+    let supplierId: string | undefined = undefined;
+    if (account.role === 'SUPPLIER') {
+      const sup = await prisma.supplier.findFirst({
+        where: { userId: account.id, deletedAt: null },
+        select: { id: true, outletId: true },
+      });
+      if (sup) {
+        supplierId = sup.id;
+        if (sup.outletId) {
+          req.outletId = sup.outletId;
+        }
+      }
+    }
+
     req.user = {
       id: account.id,
       email: account.email,
       name: account.name,
       role: account.role as UserPayload['role'],
       businessId: account.businessId,
+      supplierId,
       phoneNo: account.phoneNo,
       sid: decoded.sid,
     };

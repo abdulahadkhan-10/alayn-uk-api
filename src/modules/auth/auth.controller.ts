@@ -26,15 +26,20 @@ const baseCookie = (path: string): CookieOptions => ({
   domain: cookieDomain(),
 });
 
-/** SUPER_ADMIN logins live in their own cookies so an admin console and the customer app never share a session. */
-const portalForRole = (role?: string): Portal => (role === 'SUPER_ADMIN' ? 'admin' : 'tenant');
+/**
+ * Which cookies a session lives in. Supplier portal sessions get their own; otherwise SUPER_ADMIN
+ * logins live in theirs, so the admin console, the supplier portal and the customer app never share one.
+ */
+const cookiePortal = (req: Request, role?: string): Portal => {
+  if (resolvePortal(req) === 'supplier') return 'supplier';
+  return role === 'SUPER_ADMIN' ? 'admin' : 'tenant';
+};
 
 /**
  * Sets the access cookie and, when a new one was issued, the refresh cookie.
  * Also expires the old refresh cookie that used to live at "/" so a browser never holds two.
  */
-const setSessionCookies = (res: Response, role: string | undefined, accessToken: string, refreshToken?: string): void => {
-  const portal = portalForRole(role);
+const setSessionCookies = (res: Response, portal: Portal, accessToken: string, refreshToken?: string): void => {
   res.cookie(ACCESS_COOKIE[portal], accessToken, { ...baseCookie('/'), maxAge: ACCESS_COOKIE_MAX_AGE_MS });
   if (refreshToken) {
     res.cookie(REFRESH_COOKIE[portal], refreshToken, { ...baseCookie(REFRESH_COOKIE_PATH), maxAge: REFRESH_TOKEN_TTL_SEC * 1000 });
@@ -63,7 +68,7 @@ const readRefreshToken = (req: Request, portal: Portal): string | undefined => {
   const fromCookie =
     portal === 'admin'
       ? req.cookies?.[REFRESH_COOKIE.admin] || req.cookies?.[REFRESH_COOKIE.tenant]
-      : req.cookies?.[REFRESH_COOKIE.tenant];
+      : req.cookies?.[REFRESH_COOKIE[portal]];
   const fromBody = typeof req.body?.refreshToken === 'string' ? req.body.refreshToken : undefined;
   const fromHeader = req.headers['x-refresh-token'] as string | undefined;
   return fromCookie || fromBody || fromHeader || undefined;
@@ -82,13 +87,32 @@ export class AuthController {
     }
   };
 
+  registerSupplier = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      noStore(res);
+      const result = await this.authService.registerSupplier(req.body, sessionContext(req));
+      setSessionCookies(res, cookiePortal(req, result.user?.role), result.accessToken, result.refreshToken);
+
+      return sendSuccess(res, {
+        message: 'Supplier registration successful',
+        user: result.user,
+        supplier: result.supplier,
+        ...(wantsTokensInBody(req) ? { accessToken: result.accessToken, refreshToken: result.refreshToken } : {}),
+      }, 201);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   login = async (req: Request, res: Response, next: NextFunction) => {
     try {
       noStore(res);
       const { email, password } = req.body;
-      const result = await this.authService.login(email, password, sessionContext(req));
+      // The supplier portal only signs in suppliers, and refuses anyone else before any session exists
+      const allowedRoles = resolvePortal(req) === 'supplier' ? ['SUPPLIER'] : undefined;
+      const result = await this.authService.login(email, password, sessionContext(req), allowedRoles);
 
-      setSessionCookies(res, result.user?.role, result.accessToken, result.refreshToken);
+      setSessionCookies(res, cookiePortal(req, result.user?.role), result.accessToken, result.refreshToken);
 
       return sendSuccess(res, {
         message: 'Login successful',
@@ -114,7 +138,7 @@ export class AuthController {
       }
 
       const result = await this.authService.refresh(refreshToken);
-      setSessionCookies(res, result.user?.role, result.accessToken, result.refreshToken);
+      setSessionCookies(res, cookiePortal(req, result.user?.role), result.accessToken, result.refreshToken);
 
       return sendSuccess(res, {
         message: 'Token refreshed successfully',
@@ -217,7 +241,7 @@ export class AuthController {
       const result = await this.authService.changePassword(userId, oldPassword, newPassword, sessionContext(req));
 
       // Every other device was signed out; this device continues on a fresh session
-      setSessionCookies(res, result.user?.role, result.accessToken, result.refreshToken);
+      setSessionCookies(res, cookiePortal(req, result.user?.role), result.accessToken, result.refreshToken);
 
       return sendSuccess(res, {
         message: result.message,

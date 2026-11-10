@@ -135,6 +135,7 @@ jest.mock('../src/config/prisma', () => ({
     // Clock-in locks the employee's row inside its transaction so a double tap can't create two records
     $executeRaw: jest.fn().mockResolvedValue(1),
     $transaction: jest.fn((callback) => callback(prisma)),
+    $queryRaw: jest.fn(),
   },
 }));
 
@@ -360,7 +361,7 @@ describe('Alayn Platform Business Logic Tests', () => {
 
     it('should update received quantities, create stock batch, and ledger entries', async () => {
       const mockPO = {
-        id: 'po-1',
+        id: '8a0d6b1f-3e2c-4d7b-8a9f-1c2d3e4f5a6b',
         status: 'SENT',
         items: [
           {
@@ -393,7 +394,7 @@ describe('Alayn Platform Business Logic Tests', () => {
         },
       ];
 
-      const result = await poService.receivePO('outlet-1', 'po-1', receivePayload);
+      const result = await poService.receivePO('outlet-1', '8a0d6b1f-3e2c-4d7b-8a9f-1c2d3e4f5a6b', receivePayload);
       expect(result.status).toBe('RECEIVED');
     });
   });

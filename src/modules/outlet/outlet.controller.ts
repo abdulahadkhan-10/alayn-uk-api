@@ -12,7 +12,7 @@ export class OutletController {
       const businessId = req.user?.businessId;
       const userId = req.user?.id;
       if (!businessId || !userId) {
-        throw new AppError('UNAUTHORIZED', 'User not associated with a business', 401);
+        throw new AppError('FORBIDDEN', 'User not associated with a business', 403);
       }
       const result = await this.service.create(businessId, userId, req.body);
       return sendSuccess(res, result, 201);
@@ -23,10 +23,14 @@ export class OutletController {
 
   list = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
+      if (req.user?.role === 'SUPPLIER') {
+        return sendSuccess(res, []);
+      }
+
       const businessId = req.user?.businessId;
       const userId = req.user?.id;
       if (!businessId || !userId) {
-        throw new AppError('UNAUTHORIZED', 'User not associated with a business', 401);
+        return sendSuccess(res, []);
       }
 
       let result;
@@ -293,7 +297,7 @@ export class OutletController {
       const businessId = req.user?.businessId;
       const { id } = req.params;
       if (!businessId) {
-        throw new AppError('UNAUTHORIZED', 'User not associated with a business', 401);
+        throw new AppError('FORBIDDEN', 'User not associated with a business', 403);
       }
       await this.service.deleteUnpaidOutlet(businessId, id);
       return sendSuccess(res, { message: 'Draft outlet deleted successfully' });

@@ -108,7 +108,9 @@ async function joinOutletRooms(socket: Socket, outletId: string) {
     logger.warn(`Socket ${socket.id} (user ${user.id}) denied outlet room ${outletId}`);
     return;
   }
-  socket.join(`outlet:${outletId}`);
+  if (user.role !== 'SUPPLIER') {
+    socket.join(`outlet:${outletId}`);
+  }
   socket.join(`role:${user.role}:outlet:${outletId}`);
 }
 
@@ -120,7 +122,9 @@ export function registerSocketHandlers(socket: Socket) {
   socket.join(`user:${user.id}`);
   socket.join(`role:${user.role}`);
   if (user.businessId) {
-    socket.join(`business:${user.businessId}`);
+    if (user.role !== 'SUPPLIER') {
+      socket.join(`business:${user.businessId}`);
+    }
     socket.join(`role:${user.role}:business:${user.businessId}`);
   }
   if (socket.data.supplierId) {

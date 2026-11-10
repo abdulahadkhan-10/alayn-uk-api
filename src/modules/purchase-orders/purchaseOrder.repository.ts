@@ -23,6 +23,25 @@ export class PurchaseOrderRepository {
     });
   }
 
+  /**
+   * A supplier the caller may send a purchase order to: one of its own vendors, or any supplier who
+   * signed up on the supplier portal (those sell to every restaurant through the marketplace).
+   * Editing and deleting still go through findSupplierById, so only a business's own vendors can change.
+   */
+  async findOrderableSupplier(outletId: string, id: string, businessId?: string | null) {
+    return prisma.supplier.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        OR: [outletScope(outletId, businessId), { type: 'ONLINE', userId: { not: null } }],
+      },
+      include: {
+        outlet: { select: { id: true, name: true, businessId: true } },
+        user: { select: { id: true, email: true, name: true, role: true } },
+      },
+    });
+  }
+
   async deleteSupplier(outletId: string, id: string) {
     return prisma.supplier.updateMany({
       where: { id, deletedAt: null },
@@ -37,11 +56,23 @@ export class PurchaseOrderRepository {
     });
   }
 
-  async createPO(outletId: string, supplierId: string, totalAmountPaise: number, items: { itemId: string; orderedQuantity: number; unitCostPaise: number }[]) {
-    return prisma.purchaseOrder.create({
+  /** Creates a PO already sent to the supplier. Pass the transaction that generated `poNumber`. */
+  async createPO(
+    outletId: string,
+    supplierId: string,
+    poNumber: string,
+    totalAmountPaise: number,
+    items: { itemId: string; orderedQuantity: number; unitCostPaise: number }[],
+    clientRequestId: string | undefined,
+    client: Prisma.TransactionClient = prisma
+  ) {
+    return client.purchaseOrder.create({
       data: {
         outletId,
         supplierId,
+        poNumber,
+        clientRequestId,
+        status: 'SENT',
         totalAmountPaise,
         items: {
           create: items.map(item => ({
@@ -52,16 +83,32 @@ export class PurchaseOrderRepository {
         },
       },
       include: {
-        items: true,
+        actualSupplier: true,
+        supplier: { select: { id: true, name: true } },
+        items: { include: { item: true } },
       },
     });
   }
 
-  async findPOById(outletId: string, id: string, businessId?: string | null) {
+  /** The PO an earlier "Create PO" attempt with this key made, if the caller is allowed to see it. */
+  async findPOByClientRequestId(outletId: string, clientRequestId: string, businessId?: string | null) {
+    const isAll = !outletId || outletId === 'all';
+    const scope = isAll ? { supplier: { businessId: businessId || NO_MATCH_UUID } } : { outletId };
+    return prisma.purchaseOrder.findFirst({
+      where: { clientRequestId, deletedAt: null, ...scope },
+      include: {
+        actualSupplier: true,
+        supplier: { select: { id: true, name: true } },
+        items: { include: { item: true } },
+      },
+    });
+  }
+
+  async findPOById(outletId: string, id: string, businessId?: string | null, client: Prisma.TransactionClient = prisma) {
     const isAll = !outletId || outletId === 'all';
     // Only find POs of the current outlet (or, in "all outlets" mode, of the caller's business)
     const scope = isAll ? { supplier: { businessId: businessId || NO_MATCH_UUID } } : { outletId };
-    return prisma.purchaseOrder.findFirst({
+    return client.purchaseOrder.findFirst({
       where: { id, deletedAt: null, ...scope },
       include: {
         items: {
@@ -157,7 +204,16 @@ export class PurchaseOrderRepository {
             user: { select: { id: true, email: true, name: true } },
           },
         },
-        supplier: { select: { id: true, name: true } },
+        supplier: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            city: true,
+            phone: true,
+            business: { select: { id: true, name: true } },
+          },
+        },
         items: {
           include: {
             item: { include: { outlet: { select: { id: true, name: true } } } },
@@ -172,7 +228,16 @@ export class PurchaseOrderRepository {
     return prisma.purchaseOrder.findMany({
       where: { supplierId, deletedAt: null },
       include: {
-        supplier: { select: { id: true, name: true } },
+        supplier: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            city: true,
+            phone: true,
+            business: { select: { id: true, name: true } },
+          },
+        },
         items: {
           include: {
             item: true,
@@ -183,11 +248,20 @@ export class PurchaseOrderRepository {
     });
   }
 
-  async findSupplierPOById(supplierId: string, id: string) {
-    return prisma.purchaseOrder.findFirst({
+  async findSupplierPOById(supplierId: string, id: string, client: Prisma.TransactionClient = prisma) {
+    return client.purchaseOrder.findFirst({
       where: { id, supplierId, deletedAt: null },
       include: {
-        supplier: { select: { id: true, name: true } },
+        supplier: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            city: true,
+            phone: true,
+            business: { select: { id: true, name: true } },
+          },
+        },
         items: {
           include: {
             item: true,

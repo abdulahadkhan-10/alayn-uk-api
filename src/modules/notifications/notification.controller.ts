@@ -36,7 +36,7 @@ export class NotificationController {
           allowedRoles.push(Role.MANAGER, Role.STAFF, Role.KITCHEN);
         }
 
-        const roleWhere: any = { role: { in: allowedRoles } };
+        const roleWhere: any = { role: { in: allowedRoles }, userId: null };
         const andList: any[] = [];
 
         if (validBusinessId) {
@@ -62,14 +62,12 @@ export class NotificationController {
         }
         orConditions.push(roleWhere);
 
-        // 3. Outlet-scoped notifications (excluding supplier-only notifications)
+        // 3. General outlet/business broadcasts that have no specific role or user target
         if (validOutletId) {
-          orConditions.push({ outletId: validOutletId, OR: [{ role: { not: Role.SUPPLIER } }, { role: null }] });
+          orConditions.push({ outletId: validOutletId, role: null, userId: null });
         }
-
-        // 4. Business-scoped notifications (excluding supplier-only notifications)
         if (validBusinessId) {
-          orConditions.push({ businessId: validBusinessId, OR: [{ role: { not: Role.SUPPLIER } }, { role: null }] });
+          orConditions.push({ businessId: validBusinessId, outletId: null, role: null, userId: null });
         }
       }
     }

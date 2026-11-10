@@ -23,7 +23,7 @@ export async function businessMiddleware(req: Request, res: Response, next: Next
     if (!supplier) {
       return next(new AppError('FORBIDDEN', 'No supplier profile linked to this user account', 403));
     }
-    req.outletId = supplier.outletId;
+    req.outletId = supplier.outletId || undefined;
     return next();
   }
 

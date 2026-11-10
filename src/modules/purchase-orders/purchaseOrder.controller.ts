@@ -63,8 +63,8 @@ export class PurchaseOrderController {
   createPO = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const outletId = req.outletId!;
-      const { supplierId, items } = req.body;
-      const result = await this.poService.createPO(outletId, supplierId, items, req.user?.businessId);
+      const { supplierId, items, clientRequestId } = req.body;
+      const result = await this.poService.createPO(outletId, supplierId, items, req.user?.businessId, clientRequestId);
       return sendSuccess(res, result, 201);
     } catch (error) {
       next(error);

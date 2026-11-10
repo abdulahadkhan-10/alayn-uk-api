@@ -5,6 +5,7 @@ import { rateLimit, clientIp, bodyEmail } from '../../middleware/rateLimit';
 import {
   loginSchema,
   registerSchema,
+  registerSupplierSchema,
   forgotPasswordSchema,
   verifyResetOtpSchema,
   resetPasswordSchema,
@@ -121,6 +122,7 @@ router.post('/login', ...loginLimiters, validate({ body: loginSchema }), control
 router.post('/refresh', refreshLimiter, controller.refresh);
 router.post('/logout', refreshLimiter, controller.logout);
 router.post('/register', registerLimiter, validate({ body: registerSchema }), controller.register);
+router.post('/register-supplier', registerLimiter, validate({ body: registerSupplierSchema }), controller.registerSupplier);
 router.get('/me', authMiddleware, controller.me);
 router.patch('/profile', authMiddleware, validate({ body: updateProfileSchema }), controller.updateProfile);
 router.post('/change-password', authMiddleware, changePasswordLimiter, validate({ body: changePasswordSchema }), controller.changePassword);

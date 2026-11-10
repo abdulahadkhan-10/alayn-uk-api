@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 export const createPOSchema = z.object({
   supplierId: z.string().uuid(),
+  // Same key sent twice (double-click, retry after a lost reply) returns the PO already created
+  clientRequestId: z.string().uuid().optional(),
   items: z.array(z.object({
     itemId: z.string().uuid(),
     orderedQuantity: z.number().positive(),

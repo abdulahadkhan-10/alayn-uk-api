@@ -46,6 +46,23 @@ export const registerSchema = z.object({
   couponCode: z.string().optional(),
 });
 
+export const registerSupplierSchema = z.object({
+  user: z.object({
+    name: z.string().trim().min(2).max(100),
+    email,
+    password: newPasswordSchema,
+    phoneNo: z.string().trim().min(10).max(20),
+  }),
+  supplier: z.object({
+    name: z.string().trim().min(2).max(150),
+    contactPerson: z.string().trim().min(2).max(100),
+    address: z.string().trim().min(3).max(300),
+    category: z.string().trim().min(2).max(100).optional(),
+    gstNumber: z.string().trim().max(30).optional(),
+    deliveryTerms: z.string().trim().max(200).optional(),
+  }),
+});
+
 export const forgotPasswordSchema = z.object({
   email,
 });

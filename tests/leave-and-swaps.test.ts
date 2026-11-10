@@ -161,12 +161,21 @@ describe('Leave requests', () => {
     });
 
     it('blocks assigning a shift on a day the employee is on approved leave', async () => {
+      // Pin "today" before the leave so the past-date check never fires first; only Date is faked
+      jest.useFakeTimers({
+        now: new Date('2026-10-16T06:00:00.000Z'),
+        doNotFake: ['nextTick', 'setImmediate', 'clearImmediate', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'queueMicrotask', 'hrtime', 'performance'],
+      });
       (prisma.shift.findFirst as jest.Mock).mockResolvedValue({ id: 'shift-1', name: 'Morning', startTime: '10:00', endTime: '18:00', outletId: OUTLET });
       (prisma.leaveRequest.findFirst as jest.Mock).mockResolvedValue({ status: 'APPROVED', startDate: day('2026-10-17'), endDate: day('2026-10-19') });
 
-      await expect(new ShiftService().assignShift(OUTLET, 'shift-1', 'emp-priya', day('2026-10-18'))).rejects.toThrow(
-        'Priya is on approved leave on 2026-10-18 (2026-10-17 to 2026-10-19).'
-      );
+      try {
+        await expect(new ShiftService().assignShift(OUTLET, 'shift-1', 'emp-priya', day('2026-10-18'))).rejects.toThrow(
+          'Priya is on approved leave on 2026-10-18 (2026-10-17 to 2026-10-19).'
+        );
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 });

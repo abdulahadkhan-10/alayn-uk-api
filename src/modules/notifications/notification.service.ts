@@ -211,8 +211,8 @@ export class NotificationService {
   /**
    * Helper: Purchase Order Status Changed -> Notify Supplier / Manager / Business Owner
    */
-  static async notifyPOStatusChanged(po: { id: string; supplierId: string; supplierUserId?: string | null; status: string; totalAmountPaise: number; outletId: string; businessId?: string }, skipEmit = false) {
-    const poRef = `PO-${po.id.slice(0, 5).toUpperCase()}`;
+  static async notifyPOStatusChanged(po: { id: string; poNumber: string; supplierId: string; supplierUserId?: string | null; status: string; totalAmountPaise: number; outletId: string; businessId?: string }, skipEmit = false) {
+    const poRef = po.poNumber;
     const formattedAmount = (po.totalAmountPaise / 100).toFixed(2);
 
     if (po.status === 'SENT') {
@@ -222,12 +222,12 @@ export class NotificationService {
         outletId: po.outletId,
         role: Role.SUPPLIER,
         title: 'New Purchase Order Received',
-        message: `PO #${poRef} worth ₹${formattedAmount} has been sent to you.`,
+        message: `${poRef} worth ₹${formattedAmount} has been sent to you.`,
         type: 'PO_SENT',
         entityType: 'PURCHASE_ORDER',
         entityId: po.id,
         targetRooms,
-        metadata: { poId: po.id, status: po.status },
+        metadata: { poId: po.id, poNumber: po.poNumber, status: po.status },
         skipEmit,
       });
     } else if (po.status === 'DISPATCHED' || po.status === 'PARTIALLY_DISPATCHED') {
@@ -236,11 +236,11 @@ export class NotificationService {
         businessId: po.businessId,
         role: Role.MANAGER,
         title: 'Purchase Order Dispatched',
-        message: `PO #${poRef} has been marked as ${po.status.toLowerCase()} by supplier.`,
+        message: `${poRef} has been marked as ${po.status.toLowerCase()} by supplier.`,
         type: 'PO_DISPATCHED',
         entityType: 'PURCHASE_ORDER',
         entityId: po.id,
-        metadata: { poId: po.id, status: po.status },
+        metadata: { poId: po.id, poNumber: po.poNumber, status: po.status },
         skipEmit,
       });
     } else if (po.status === 'CANCELLED') {
@@ -250,12 +250,12 @@ export class NotificationService {
         outletId: po.outletId,
         role: Role.SUPPLIER,
         title: 'Purchase Order Cancelled',
-        message: `PO #${poRef} worth ₹${formattedAmount} has been cancelled. Please do not dispatch it.`,
+        message: `${poRef} worth ₹${formattedAmount} has been cancelled. Please do not dispatch it.`,
         type: 'PO_CANCELLED',
         entityType: 'PURCHASE_ORDER',
         entityId: po.id,
         targetRooms: [`supplier:${po.supplierId}`],
-        metadata: { poId: po.id, status: po.status },
+        metadata: { poId: po.id, poNumber: po.poNumber, status: po.status },
         skipEmit,
       });
     } else if (po.status === 'RECEIVED' || po.status === 'CLOSED') {
@@ -264,11 +264,11 @@ export class NotificationService {
         businessId: po.businessId,
         role: Role.BUSINESS_OWNER,
         title: 'Purchase Order Fulfilled',
-        message: `PO #${poRef} has been completed and received.`,
+        message: `${poRef} has been completed and received.`,
         type: 'PO_RECEIVED',
         entityType: 'PURCHASE_ORDER',
         entityId: po.id,
-        metadata: { poId: po.id, status: po.status },
+        metadata: { poId: po.id, poNumber: po.poNumber, status: po.status },
         skipEmit,
       });
     }
@@ -492,6 +492,7 @@ export class NotificationService {
           await this.notifyPOStatusChanged(
             {
               id: po.id,
+              poNumber: po.poNumber,
               supplierId: po.supplierId,
               supplierUserId: po.actualSupplier?.userId,
               status: po.status,

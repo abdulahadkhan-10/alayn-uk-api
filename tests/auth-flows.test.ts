@@ -12,6 +12,8 @@ import { verifyToken, verifyRefreshToken } from '../src/utils/jwt';
 import { AppError } from '../src/utils/AppError';
 import { generateTemporaryPassword } from '../src/utils/password';
 import { registerSchema, newPasswordSchema, loginSchema } from '../src/modules/auth/auth.schema';
+import { resolvePortal, ACCESS_COOKIE, REFRESH_COOKIE } from '../src/utils/identity';
+import { readAccessToken } from '../src/middleware/auth.middleware';
 
 jest.mock('../src/config/prisma', () => ({ prisma: { user: { findUnique: jest.fn(), update: jest.fn() } } }));
 jest.mock('../src/config/redis', () => ({ redisClient: { isOpen: false } }));
@@ -74,12 +76,49 @@ describe('login', () => {
     expect(JSON.stringify(result)).not.toContain('passwordHash');
   });
 
+  it('the supplier portal refuses a non-supplier before opening a session', async () => {
+    jest.spyOn(AuthRepository.prototype, 'findUserByEmail').mockResolvedValue(owner);
+    const openSession = jest.spyOn(AuthService.prototype as any, 'openSession');
+    const err = await service.login('owner@cafe.com', 'Correct1pass', {}, ['SUPPLIER']).catch((e) => e);
+    expect([err.code, err.statusCode]).toEqual(['WRONG_PORTAL', 403]);
+    expect(openSession).not.toHaveBeenCalled();
+    openSession.mockRestore();
+  });
+
+  it('the supplier portal does not reveal the role without the right password', async () => {
+    jest.spyOn(AuthRepository.prototype, 'findUserByEmail').mockResolvedValue(owner);
+    const err = await service.login('owner@cafe.com', 'Wrong1pass', {}, ['SUPPLIER']).catch((e) => e);
+    expect(err.code).toBe('INVALID_CREDENTIALS');
+  });
+
   it('does not tell a deactivated account holder anything without the right password', async () => {
     jest.spyOn(AuthRepository.prototype, 'findUserByEmail').mockResolvedValue({ ...owner, isActive: false });
     const wrong = await service.login('owner@cafe.com', 'Wrong1pass').catch((e) => e);
     expect(wrong.code).toBe('INVALID_CREDENTIALS');
     const right = await service.login('owner@cafe.com', 'Correct1pass').catch((e) => e);
     expect(right.code).toBe('ACCOUNT_DISABLED');
+  });
+});
+
+describe('supplier portal cookies', () => {
+  const req = (headers: Record<string, string>, cookies: Record<string, string> = {}): any => ({ headers, cookies, baseUrl: '', originalUrl: '' });
+
+  it('is recognised by its header or its suppliers. host', () => {
+    expect(resolvePortal(req({ 'x-portal': 'supplier' }))).toBe('supplier');
+    expect(resolvePortal(req({ origin: 'https://suppliers.alaynai.com' }))).toBe('supplier');
+    expect(resolvePortal(req({ origin: 'https://alaynai.com' }))).toBe('tenant');
+  });
+
+  it('never shares cookie names with the customer app', () => {
+    expect(ACCESS_COOKIE.supplier).not.toBe(ACCESS_COOKIE.tenant);
+    expect(REFRESH_COOKIE.supplier).not.toBe(REFRESH_COOKIE.tenant);
+  });
+
+  it('reads only its own access cookie, so a restaurant session is never used by the supplier portal', () => {
+    const both = { [ACCESS_COOKIE.tenant]: 'restaurant', [ACCESS_COOKIE.supplier]: 'supplier' };
+    expect(readAccessToken(req({ 'x-portal': 'supplier' }, both))).toBe('supplier');
+    expect(readAccessToken(req({ 'x-portal': 'tenant' }, both))).toBe('restaurant');
+    expect(readAccessToken(req({ 'x-portal': 'supplier' }, { [ACCESS_COOKIE.tenant]: 'restaurant' }))).toBeUndefined();
   });
 });
 

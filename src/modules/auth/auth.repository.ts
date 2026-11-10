@@ -70,6 +70,52 @@ export class AuthRepository {
 
   }
 
+  async registerSupplier(data: {
+    user: {
+      name: string;
+      email: string;
+      passwordHash: string;
+      phoneNo: string;
+    };
+    supplier: {
+      name: string;
+      contactPerson: string;
+      address: string;
+      category?: string;
+      gstNumber?: string;
+      deliveryTerms?: string;
+    };
+  }) {
+    return prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name: data.user.name,
+          email: data.user.email,
+          passwordHash: data.user.passwordHash,
+          phoneNo: data.user.phoneNo,
+          role: Role.SUPPLIER,
+        },
+      });
+
+      const supplier = await tx.supplier.create({
+        data: {
+          name: data.supplier.name,
+          contactPerson: data.supplier.contactPerson,
+          phone: data.user.phoneNo,
+          email: data.user.email,
+          address: data.supplier.address,
+          category: data.supplier.category,
+          gstNumber: data.supplier.gstNumber,
+          deliveryTerms: data.supplier.deliveryTerms,
+          type: 'ONLINE',
+          userId: user.id,
+        },
+      });
+
+      return { user, supplier };
+    });
+  }
+
   /**
    * Case-insensitive, so accounts created before emails were normalised (e.g. "Owner@Cafe.com")
    * can still sign in and reset their password. The oldest matching account wins.
@@ -92,6 +138,15 @@ export class AuthRepository {
         deletedAt: null,
       },
       include: userInclude,
+    });
+  }
+
+  async findSupplierByUserId(userId: string) {
+    return prisma.supplier.findFirst({
+      where: {
+        userId,
+        deletedAt: null,
+      },
     });
   }
 

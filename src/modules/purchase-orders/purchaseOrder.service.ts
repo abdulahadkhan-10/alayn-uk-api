@@ -7,14 +7,50 @@ import { NotificationService } from '../notifications/notification.service';
 import { NO_MATCH_UUID } from '../../utils/tenantScope';
 import { normalizeEmail } from '../../utils/identity';
 import { generateTemporaryPassword } from '../../utils/password';
+import { generatePONumber } from '../../utils/poNumber';
+import { DOCUMENT_NUMBER_TX_OPTIONS } from '../../utils/documentNumber';
 
 
 // Statuses after which a PO can no longer be received, cancelled or closed
 const FINAL_PO_STATUSES: POStatus[] = ['RECEIVED', 'CLOSED', 'CANCELLED'];
 
+/**
+ * Every change to an existing PO (supplier status, receive, cancel, close) runs in a transaction that
+ * first row-locks the PO, then re-reads it and checks its status. Two people acting on the same PO at
+ * the same moment are therefore handled one after the other: the second waits a few milliseconds and
+ * sees what the first did (e.g. "already cancelled"), instead of both acting on a stale copy.
+ * Other POs are never blocked.
+ */
+async function lockPO(tx: Prisma.TransactionClient, poId: string): Promise<void> {
+  // The id comes straight from the URL; a malformed one is "not found", not a database cast error
+  if (!UUID_PATTERN.test(poId)) {
+    throw new AppError('PO_NOT_FOUND', 'Purchase order not found', 404);
+  }
+  await tx.$queryRaw`SELECT "id" FROM "PurchaseOrder" WHERE "id" = ${poId}::uuid FOR UPDATE`;
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Wait up to 10 s for a busy PO instead of Prisma's 2 s default. */
+const PO_TX_OPTIONS = { maxWait: 10_000, timeout: 15_000 } as const;
+
 function decimalToNumber(value: { toNumber: () => number } | number | null | undefined): number {
   if (value === null || value === undefined) return 0;
   return typeof value === 'number' ? value : value.toNumber();
+}
+
+/** A unique-constraint violation on `field` (Prisma P2002). */
+function isUniqueClash(err: unknown, field: string): boolean {
+  return (
+    err instanceof Prisma.PrismaClientKnownRequestError &&
+    err.code === 'P2002' &&
+    String(err.meta?.target ?? '').includes(field)
+  );
+}
+
+/** Has anything on this PO arrived yet, accepted or rejected as damaged? */
+function anythingReceived(po: { items: { receivedQuantity: Prisma.Decimal; damagedQuantity: Prisma.Decimal | null }[] }): boolean {
+  return po.items.some((i) => i.receivedQuantity.toNumber() > 0 || decimalToNumber(i.damagedQuantity) > 0);
 }
 
 function parseValidExpiryDate(inputDate?: any): Date {
@@ -156,16 +192,37 @@ export class PurchaseOrderService {
     outletId: string,
     supplierId: string,
     items: { itemId: string; orderedQuantity: number; unitCostPaise: number }[],
-    businessId?: string | null
+    businessId?: string | null,
+    clientRequestId?: string
   ) {
-    const supplier = await this.poRepository.findSupplierById(outletId, supplierId, businessId);
+    // The same attempt sent again (double-click, retry after a lost reply): return the PO it already made
+    if (clientRequestId) {
+      const existing = await this.poRepository.findPOByClientRequestId(outletId, clientRequestId, businessId);
+      if (existing) return existing;
+    }
+
+    const supplier = await this.poRepository.findOrderableSupplier(outletId, supplierId, businessId);
     if (!supplier) {
       throw new AppError('SUPPLIER_NOT_FOUND', 'Supplier not found', 404);
     }
 
-    let targetOutletId = outletId;
+    let targetOutletId: string | null = outletId;
     if (!targetOutletId || targetOutletId === 'all') {
       targetOutletId = supplier.outletId;
+    }
+
+    if (!targetOutletId) {
+      throw new AppError('OUTLET_REQUIRED', 'An outlet must be specified to create a purchase order', 400);
+    }
+
+    if (businessId) {
+      const ownedOutlet = await prisma.outlet.findFirst({
+        where: { id: targetOutletId, businessId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!ownedOutlet) {
+        throw new AppError('FORBIDDEN', 'Select a valid branch of your business before creating a purchase order.', 403);
+      }
     }
 
     let totalAmountPaise = 0;
@@ -184,21 +241,31 @@ export class PurchaseOrderService {
       totalAmountPaise += Math.round(item.orderedQuantity * item.unitCostPaise);
     }
 
-    const createdPO = await this.poRepository.createPO(targetOutletId, supplierId, totalAmountPaise, items);
-
-    // Update status to SENT automatically upon creation
-    const updatedPO = await prisma.purchaseOrder.update({
-      where: { id: createdPO.id },
-      data: { status: 'SENT' },
-      include: {
-        actualSupplier: true,
-        supplier: { select: { id: true, name: true } },
-        items: { include: { item: true } },
-      },
-    });
+    // Number and order are created together: if the insert fails, the PO number is released
+    const outletForPO = targetOutletId;
+    let updatedPO;
+    try {
+      updatedPO = await prisma.$transaction(
+        async (tx) => {
+          const poNumber = await generatePONumber(tx, outletForPO);
+          return this.poRepository.createPO(outletForPO, supplierId, poNumber, totalAmountPaise, items, clientRequestId, tx);
+        },
+        DOCUMENT_NUMBER_TX_OPTIONS
+      );
+    } catch (err) {
+      // Two copies of the same attempt arrived at the same instant: both passed the check above, the
+      // database let only one save. Hand the other one that PO (its own number was released on rollback).
+      if (clientRequestId && isUniqueClash(err, 'clientRequestId')) {
+        const winner = await this.poRepository.findPOByClientRequestId(outletId, clientRequestId, businessId);
+        if (winner) return winner;
+        throw new AppError('DUPLICATE_REQUEST', 'This request was already used. Refresh and try again.', 409);
+      }
+      throw err;
+    }
 
     NotificationService.notifyPOStatusChanged({
       id: updatedPO.id,
+      poNumber: updatedPO.poNumber,
       supplierId: updatedPO.supplierId,
       supplierUserId: updatedPO.actualSupplier?.userId,
       status: 'SENT',
@@ -216,7 +283,23 @@ export class PurchaseOrderService {
     if (!supplier) {
       throw new AppError('SUPPLIER_NOT_FOUND', 'No supplier profile associated with this user account', 404);
     }
-    return this.poRepository.findPOsBySupplierId(supplier.id);
+    const orders = await this.poRepository.findPOsBySupplierId(supplier.id);
+    return orders.map((po: any) => {
+      const outletInfo = po.supplier
+        ? {
+            id: po.supplier.id,
+            name: po.supplier.name,
+            restaurantName: po.supplier.business?.name || po.supplier.name,
+            address: po.supplier.address,
+            city: po.supplier.city,
+            phone: po.supplier.phone,
+          }
+        : null;
+      return {
+        ...po,
+        outlet: outletInfo,
+      };
+    });
   }
 
   async updateSupplierPOStatus(
@@ -234,56 +317,58 @@ export class PurchaseOrderService {
       throw new AppError('SUPPLIER_NOT_FOUND', 'No supplier profile associated with this user account', 404);
     }
 
-    const po = await this.poRepository.findSupplierPOById(supplier.id, poId);
-    if (!po) {
-      throw new AppError('PO_NOT_FOUND', 'Purchase order not found or not assigned to you', 404);
-    }
-
-    if (po.status === 'RECEIVED' || po.status === 'CLOSED' || po.status === 'CANCELLED') {
-      throw new AppError('PO_CLOSED', `Cannot modify purchase order in ${po.status} status`, 400);
-    }
-
-    const validStatuses: POStatus[] = ['PACKING', 'OUT_OF_STOCK', 'PARTIALLY_DISPATCHED', 'DISPATCHED'];
-    if (!validStatuses.includes(data.status)) {
-      throw new AppError('INVALID_STATUS', `Invalid supplier status: ${data.status}`, 400);
-    }
-
-    let targetStatus = data.status;
-
-    if (data.status === 'DISPATCHED' || data.status === 'PARTIALLY_DISPATCHED') {
-      if (!data.items || data.items.length === 0) {
-        throw new AppError('INVALID_DISPATCH', 'Item dispatch quantities are required', 400);
+    const updatedPO = await prisma.$transaction(async (tx) => {
+      // Lock, then read fresh: a restaurant cancelling or receiving this PO right now goes first or waits
+      await lockPO(tx, poId);
+      const po = await this.poRepository.findSupplierPOById(supplier.id, poId, tx);
+      if (!po) {
+        throw new AppError('PO_NOT_FOUND', 'Purchase order not found or not assigned to you', 404);
       }
 
-      let totalDispatched = 0;
-      let isPartial = false;
+      if (po.status === 'RECEIVED' || po.status === 'CLOSED' || po.status === 'CANCELLED') {
+        throw new AppError('PO_CLOSED', `Cannot modify purchase order in ${po.status} status`, 400);
+      }
 
-      for (const itemInput of data.items) {
-        const qty = Number(itemInput.dispatchedQuantity) || 0;
-        if (qty < 0) {
-          throw new AppError('INVALID_DISPATCH_QTY', 'Dispatched quantity cannot be negative', 400);
+      const validStatuses: POStatus[] = ['PACKING', 'OUT_OF_STOCK', 'PARTIALLY_DISPATCHED', 'DISPATCHED'];
+      if (!validStatuses.includes(data.status)) {
+        throw new AppError('INVALID_STATUS', `Invalid supplier status: ${data.status}`, 400);
+      }
+
+      let targetStatus = data.status;
+
+      if (data.status === 'DISPATCHED' || data.status === 'PARTIALLY_DISPATCHED') {
+        if (!data.items || data.items.length === 0) {
+          throw new AppError('INVALID_DISPATCH', 'Item dispatch quantities are required', 400);
         }
-        totalDispatched += qty;
 
-        const poItem = po.items.find((i: any) => i.itemId === itemInput.itemId);
-        if (poItem) {
-          const ordered = poItem.orderedQuantity.toNumber();
-          if (qty < ordered) {
-            isPartial = true;
+        let totalDispatched = 0;
+        let isPartial = false;
+
+        for (const itemInput of data.items) {
+          const qty = Number(itemInput.dispatchedQuantity) || 0;
+          if (qty < 0) {
+            throw new AppError('INVALID_DISPATCH_QTY', 'Dispatched quantity cannot be negative', 400);
+          }
+          totalDispatched += qty;
+
+          const poItem = po.items.find((i: any) => i.itemId === itemInput.itemId);
+          if (poItem) {
+            const ordered = poItem.orderedQuantity.toNumber();
+            if (qty < ordered) {
+              isPartial = true;
+            }
           }
         }
+
+        if (totalDispatched <= 0) {
+          throw new AppError('INVALID_DISPATCH_QTY', 'Total dispatched quantity must be greater than 0', 400);
+        }
+
+        if (isPartial) {
+          targetStatus = 'PARTIALLY_DISPATCHED';
+        }
       }
 
-      if (totalDispatched <= 0) {
-        throw new AppError('INVALID_DISPATCH_QTY', 'Total dispatched quantity must be greater than 0', 400);
-      }
-
-      if (isPartial) {
-        targetStatus = 'PARTIALLY_DISPATCHED';
-      }
-    }
-
-    const updatedPO = await prisma.$transaction(async (tx) => {
       if (data.items && data.items.length > 0 && po.items) {
         for (const itemToUpdate of data.items) {
           const poItem = po.items.find((i: any) => i.itemId === itemToUpdate.itemId);
@@ -317,10 +402,11 @@ export class PurchaseOrderService {
         },
       });
       return result;
-    });
+    }, PO_TX_OPTIONS);
 
     NotificationService.notifyPOStatusChanged({
       id: updatedPO.id,
+      poNumber: updatedPO.poNumber,
       supplierId: updatedPO.supplierId,
       status: updatedPO.status,
       totalAmountPaise: updatedPO.totalAmountPaise,
@@ -344,16 +430,32 @@ export class PurchaseOrderService {
     }[],
     businessId?: string | null
   ) {
-    const po = await this.poRepository.findPOById(outletId, poId, businessId);
-    if (!po) {
-      throw new AppError('PO_NOT_FOUND', 'Purchase order not found', 404);
+    // Deduplicate receivedItems by itemId so repeated itemId entries in one request cannot multiply stock
+    const mergedItemsMap = new Map<string, typeof receivedItems[number]>();
+    for (const entry of receivedItems) {
+      const existing = mergedItemsMap.get(entry.itemId);
+      if (existing) {
+        existing.receivedQuantity = (existing.receivedQuantity || 0) + (entry.receivedQuantity || 0);
+        existing.damagedQuantity = (existing.damagedQuantity || 0) + (entry.damagedQuantity || 0);
+      } else {
+        mergedItemsMap.set(entry.itemId, { ...entry });
+      }
     }
-    if (FINAL_PO_STATUSES.includes(po.status)) {
-      throw new AppError('PO_ALREADY_COMPLETED', `Cannot receive items on a ${po.status.toLowerCase()} purchase order`, 400);
-    }
+    const deduplicatedItems = Array.from(mergedItemsMap.values());
 
     const updatedPO = await prisma.$transaction(async (tx) => {
-      for (const itemToReceive of receivedItems) {
+      // Lock, then read fresh. Without this, two receives at the same moment (double-click, two staff)
+      // both read "0 received", both pass the over-order check and both add stock.
+      await lockPO(tx, poId);
+      const po = await this.poRepository.findPOById(outletId, poId, businessId, tx);
+      if (!po) {
+        throw new AppError('PO_NOT_FOUND', 'Purchase order not found', 404);
+      }
+      if (FINAL_PO_STATUSES.includes(po.status)) {
+        throw new AppError('PO_ALREADY_COMPLETED', `Cannot receive items on a ${po.status.toLowerCase()} purchase order`, 400);
+      }
+
+      for (const itemToReceive of deduplicatedItems) {
         const poItem = po.items.find((i) => i.itemId === itemToReceive.itemId);
         if (!poItem) {
           throw new AppError('ITEM_NOT_IN_PO', `Item ${itemToReceive.itemId} is not in this purchase order`, 400);
@@ -376,6 +478,10 @@ export class PurchaseOrderService {
             400
           );
         }
+
+        // Update in-memory tracker as well
+        poItem.receivedQuantity = new Prisma.Decimal(totalReceived);
+        poItem.damagedQuantity = new Prisma.Decimal(totalDamaged);
 
         // 1. Update received / damaged quantities in PurchaseOrderItem
         await tx.purchaseOrderItem.update({
@@ -479,10 +585,11 @@ export class PurchaseOrderService {
           items: { include: { item: true } },
         },
       });
-    });
+    }, PO_TX_OPTIONS);
 
     NotificationService.notifyPOStatusChanged({
       id: updatedPO.id,
+      poNumber: updatedPO.poNumber,
       supplierId: updatedPO.supplierId,
       status: updatedPO.status,
       totalAmountPaise: updatedPO.totalAmountPaise,
@@ -497,65 +604,76 @@ export class PurchaseOrderService {
    * Once anything has been received, use closePO instead.
    */
   async cancelPO(outletId: string, poId: string, reason: string | undefined, businessId?: string | null) {
-    const po = await this.poRepository.findPOById(outletId, poId, businessId);
-    if (!po) {
-      throw new AppError('PO_NOT_FOUND', 'Purchase order not found', 404);
-    }
-    if (FINAL_PO_STATUSES.includes(po.status)) {
-      throw new AppError('PO_ALREADY_COMPLETED', `This purchase order is already ${po.status.toLowerCase()}`, 400);
-    }
-    const anythingReceived = po.items.some(
-      (i) => i.receivedQuantity.toNumber() > 0 || decimalToNumber(i.damagedQuantity) > 0
-    );
-    if (anythingReceived) {
-      throw new AppError(
-        'PO_PARTIALLY_RECEIVED',
-        'Some items on this order were already received. Use "Close order" to stop expecting the rest.',
-        400
-      );
-    }
-
-    return this.finalizePO(po, 'CANCELLED', reason?.trim() || 'Cancelled by manager');
+    return this.finalizePO(outletId, poId, businessId, 'CANCELLED', reason?.trim() || 'Cancelled by manager', (po) => {
+      if (anythingReceived(po)) {
+        throw new AppError(
+          'PO_PARTIALLY_RECEIVED',
+          'Some items on this order were already received. Use "Close order" to stop expecting the rest.',
+          400
+        );
+      }
+    });
   }
 
   /**
    * Close a partially received PO when the remaining quantity will not arrive (short delivery).
    */
   async closePO(outletId: string, poId: string, reason: string | undefined, businessId?: string | null) {
-    const po = await this.poRepository.findPOById(outletId, poId, businessId);
-    if (!po) {
-      throw new AppError('PO_NOT_FOUND', 'Purchase order not found', 404);
-    }
-    if (FINAL_PO_STATUSES.includes(po.status)) {
-      throw new AppError('PO_ALREADY_COMPLETED', `This purchase order is already ${po.status.toLowerCase()}`, 400);
-    }
-    const anythingReceived = po.items.some(
-      (i) => i.receivedQuantity.toNumber() > 0 || decimalToNumber(i.damagedQuantity) > 0
+    return this.finalizePO(
+      outletId,
+      poId,
+      businessId,
+      'CLOSED',
+      reason?.trim() || 'Closed short — remaining quantity not expected',
+      (po) => {
+        if (!anythingReceived(po)) {
+          throw new AppError(
+            'PO_NOTHING_RECEIVED',
+            'Nothing has been received on this order yet. Use "Cancel order" instead.',
+            400
+          );
+        }
+      }
     );
-    if (!anythingReceived) {
-      throw new AppError(
-        'PO_NOTHING_RECEIVED',
-        'Nothing has been received on this order yet. Use "Cancel order" instead.',
-        400
-      );
-    }
-
-    return this.finalizePO(po, 'CLOSED', reason?.trim() || 'Closed short — remaining quantity not expected');
   }
 
-  private async finalizePO(po: { id: string }, status: 'CANCELLED' | 'CLOSED', reason: string) {
-    const updatedPO = await prisma.purchaseOrder.update({
-      where: { id: po.id },
-      data: { status, closedReason: reason, closedAt: new Date() },
-      include: {
-        actualSupplier: true,
-        supplier: { select: { id: true, name: true } },
-        items: { include: { item: true } },
-      },
-    });
+  /**
+   * Cancel or close a PO. Locks it and re-reads it first, so a supplier dispatching or a manager
+   * receiving at the same moment can't be overwritten by (or overwrite) the cancel.
+   */
+  private async finalizePO(
+    outletId: string,
+    poId: string,
+    businessId: string | null | undefined,
+    status: 'CANCELLED' | 'CLOSED',
+    reason: string,
+    check: (po: NonNullable<Awaited<ReturnType<PurchaseOrderRepository['findPOById']>>>) => void
+  ) {
+    const updatedPO = await prisma.$transaction(async (tx) => {
+      await lockPO(tx, poId);
+      const po = await this.poRepository.findPOById(outletId, poId, businessId, tx);
+      if (!po) {
+        throw new AppError('PO_NOT_FOUND', 'Purchase order not found', 404);
+      }
+      if (FINAL_PO_STATUSES.includes(po.status)) {
+        throw new AppError('PO_ALREADY_COMPLETED', `This purchase order is already ${po.status.toLowerCase()}`, 400);
+      }
+      check(po);
+
+      return tx.purchaseOrder.update({
+        where: { id: po.id },
+        data: { status, closedReason: reason, closedAt: new Date() },
+        include: {
+          actualSupplier: true,
+          supplier: { select: { id: true, name: true } },
+          items: { include: { item: true } },
+        },
+      });
+    }, PO_TX_OPTIONS);
 
     NotificationService.notifyPOStatusChanged({
       id: updatedPO.id,
+      poNumber: updatedPO.poNumber,
       supplierId: updatedPO.supplierId,
       supplierUserId: updatedPO.actualSupplier?.userId,
       status: updatedPO.status,
