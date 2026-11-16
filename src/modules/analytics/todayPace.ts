@@ -1,7 +1,7 @@
 /*
  * "Today's pace": sales so far today against what a typical day of the same weekday had sold by this
- * time, scaled to today's forecast. "₹12,400 by 2 PM, 8% ahead of a normal Friday."
- * Amounts are settled sales before tax, in paise (the API converts to rupees).
+ * time, scaled to today's forecast. "£12,400 by 2 PM, 8% ahead of a normal Friday."
+ * Amounts are settled sales before tax, in paise (the API converts to pounds).
  */
 import { prisma } from '../../config/prisma';
 import { outletScope } from '../../utils/tenantScope';

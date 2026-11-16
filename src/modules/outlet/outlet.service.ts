@@ -75,7 +75,7 @@ export class OutletService {
 
   async updateReceiptDetails(
     outletId: string,
-    data: { phone?: string; gstin?: string; receiptTagline?: string; receiptFooter?: string; upiId?: string },
+    data: { phone?: string; gstin?: string; receiptTagline?: string; receiptFooter?: string },
     businessId?: string
   ) {
     return this.repository.updateReceiptDetails(outletId, data, businessId);

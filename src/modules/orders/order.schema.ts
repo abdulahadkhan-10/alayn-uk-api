@@ -5,14 +5,14 @@ const selectedModifierSchema = z.object({
   id: z.string().uuid(),
 });
 
-const paymentMethodSchema = z.enum(['UPI', 'CARD', 'CASH', 'SWIGGY', 'ZOMATO', 'EAZYDINER']);
+const paymentMethodSchema = z.enum(['CARD', 'CASH', 'DELIVEROO', 'UBER_EATS', 'JUST_EAT']);
 
-// One part of a split or settlement payment. Amounts are integer paise so no rupee fractions are lost in transit.
+// One part of a split or settlement payment. Amounts are integer paise so no pound fractions are lost in transit.
 const splitPaymentSchema = z.object({
   method: paymentMethodSchema,
   amountPaise: z.number().int().positive(),
   reference: z.string().trim().max(64).optional(),
-  // Cashier confirmed an online (UPI / card / partner) payment was received
+  // Cashier confirmed an online (card / partner) payment was received
   verified: z.boolean().optional(),
 });
 
@@ -24,7 +24,7 @@ export const createOrderSchema = z.object({
   tableToken: z.string().optional(),
   customerName: z.string().trim().max(100).optional(),
   customerPhone: z.string().trim().max(20).optional(),
-  paymentMethod: z.enum(['UPI', 'CARD', 'CASH']).optional(),
+  paymentMethod: z.enum(['CARD', 'CASH']).optional(),
   // Payment fields are ignored on table-QR orders: diners say how they'll pay when they ask for the bill
   paymentStatus: z.enum(['PENDING', 'CONFIRMED', 'FAILED']).optional(),
   paymentRef: z.string().trim().max(64).optional(),
@@ -49,7 +49,7 @@ export const updateOrderStatusSchema = z.object({
   payments: z.array(splitPaymentSchema).min(1).max(MAX_SPLIT_PAYMENTS).optional(),
   // Same key on a retried settle request returns the settled bill instead of an error
   idempotencyKey: z.string().trim().min(8).max(100).optional(),
-  // The cashier checked a UTR / approval code already used on another bill and settles anyway
+  // The cashier checked an approval code already used on another bill and settles anyway
   allowDuplicateReference: z.boolean().optional(),
   customerName: z.string().optional(),
   customerPhone: z.string().optional(),
@@ -73,7 +73,7 @@ export const createPaymentSchema = z.object({
 
 // Diner asks for the bill from the table QR and says how they'll pay
 export const tableBillRequestSchema = z.object({
-  paymentMethod: z.enum(['UPI', 'CARD', 'CASH']),
+  paymentMethod: z.enum(['CARD', 'CASH']),
   paymentRef: z.string().trim().max(64).optional(),
 });
 

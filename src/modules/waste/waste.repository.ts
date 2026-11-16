@@ -44,7 +44,7 @@ export class WasteRepository {
   async getWasteSummary(outletId: string, businessId?: string) {
     const groupWhere = outletScope(outletId, businessId);
     const now = new Date();
-    // The 1st of this month at midnight India time (the server clock is UTC, 5h30m behind)
+    // The 1st of this month at midnight UK time (the server clock is UTC)
     const { year, month } = businessParts(now);
     const startOfMonth = businessDayStart(year, month, 1);
 

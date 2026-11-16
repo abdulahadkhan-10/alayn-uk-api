@@ -475,10 +475,30 @@ export const swaggerDocument = {
       },
     },
     '/api/v1/inventory/recipes': {
-      post: {
-        summary: 'Create Recipe Link',
+      get: {
+        summary: 'Recipe coverage: every menu item of the branch with whether it has a recipe, its cost per portion, margin and food-cost %',
         tags: ['Inventory'],
         parameters: [{ name: 'x-outlet-id', in: 'header', required: true, schema: { type: 'string' } }],
+        responses: { 200: { description: 'OK' } },
+      },
+    },
+    '/api/v1/menu/items/{id}/recipe': {
+      get: {
+        summary: "A menu item's recipe at the selected branch, with cost, margin and food-cost %",
+        tags: ['Inventory'],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'x-outlet-id', in: 'header', required: true, schema: { type: 'string' } },
+        ],
+        responses: { 200: { description: 'OK' }, 404: { description: 'Menu item not found' } },
+      },
+      put: {
+        summary: "Replace a menu item's recipe at the selected branch (empty list clears it). Recipes are optional; a sold dish with a recipe takes its ingredients out of stock when the bill is settled.",
+        tags: ['Inventory'],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'x-outlet-id', in: 'header', required: true, schema: { type: 'string' } },
+        ],
         requestBody: {
           required: true,
           content: {
@@ -486,18 +506,101 @@ export const swaggerDocument = {
               schema: {
                 type: 'object',
                 properties: {
-                  menuItemId: { type: 'string', format: 'uuid' },
-                  itemId: { type: 'string', format: 'uuid' },
-                  quantityPerUnit: { type: 'number', example: 0.1 },
+                  lines: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        itemId: { type: 'string', format: 'uuid' },
+                        quantity: { type: 'number', example: 0.1, description: "In the ingredient's own unit, per portion" },
+                        wastagePercent: { type: 'number', example: 5 },
+                      },
+                      required: ['itemId', 'quantity'],
+                    },
+                  },
+                  applyToOutletIds: { type: 'array', items: { type: 'string', format: 'uuid' }, description: 'Also copy to these branches, matching ingredients by SKU' },
                 },
-                required: ['menuItemId', 'itemId', 'quantityPerUnit'],
+                required: ['lines'],
               },
             },
           },
         },
-        responses: {
-          201: { description: 'Created' },
+        responses: { 200: { description: 'Saved' }, 400: { description: 'Ingredient not in the stock of this branch' } },
+      },
+      delete: {
+        summary: "Remove a menu item's recipe at the selected branch",
+        tags: ['Inventory'],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'x-outlet-id', in: 'header', required: true, schema: { type: 'string' } },
+        ],
+        responses: { 200: { description: 'Removed' } },
+      },
+    },
+    '/api/v1/inventory/variance': {
+      get: {
+        summary: 'Theoretical vs actual ingredient usage between stock counts (default last 30 days, max 90). Positive variance = more went than recipe sales and logged waste explain.',
+        tags: ['Inventory'],
+        parameters: [
+          { name: 'x-outlet-id', in: 'header', required: true, schema: { type: 'string' } },
+          { name: 'from', in: 'query', required: false, schema: { type: 'string', format: 'date-time' } },
+          { name: 'to', in: 'query', required: false, schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: { 200: { description: 'OK' }, 400: { description: 'Invalid period or no branch selected' } },
+      },
+    },
+    '/api/v1/menu/modifier-items/{id}/recipe': {
+      get: {
+        summary: 'Recipe of an add-on / option choice at the selected branch, with cost against the add-on price',
+        tags: ['Inventory'],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'x-outlet-id', in: 'header', required: true, schema: { type: 'string' } },
+        ],
+        responses: { 200: { description: 'OK' }, 404: { description: 'Add-on not found' } },
+      },
+      put: {
+        summary: 'Replace the recipe of an add-on at the selected branch (empty list clears it). Its materials are taken out of stock, on top of the dish recipe, when a line with that add-on is settled.',
+        tags: ['Inventory'],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'x-outlet-id', in: 'header', required: true, schema: { type: 'string' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  lines: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        itemId: { type: 'string', format: 'uuid' },
+                        quantity: { type: 'number', example: 0.03 },
+                        wastagePercent: { type: 'number', example: 0 },
+                      },
+                      required: ['itemId', 'quantity'],
+                    },
+                  },
+                },
+                required: ['lines'],
+              },
+            },
+          },
         },
+        responses: { 200: { description: 'Saved' } },
+      },
+      delete: {
+        summary: 'Remove the recipe of an add-on at the selected branch',
+        tags: ['Inventory'],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'x-outlet-id', in: 'header', required: true, schema: { type: 'string' } },
+        ],
+        responses: { 200: { description: 'Removed' } },
       },
     },
     '/api/v1/purchase-orders': {
@@ -706,25 +809,25 @@ export const swaggerDocument = {
                 properties: {
                   status: { type: 'string', enum: ['RECEIVED', 'PREPARING', 'READY', 'SERVED', 'DISPATCHED', 'COMPLETED', 'CANCELLED'] },
                   comment: { type: 'string' },
-                  paymentMethod: { type: 'string', enum: ['UPI', 'CARD', 'CASH'], description: 'Single payment: the balance due is recorded in this method. Only CASH settles this way; UPI and CARD must be sent in `payments` with verified: true (the cashier confirmed the money arrived), otherwise 400 PAYMENT_NOT_VERIFIED' },
+                  paymentMethod: { type: 'string', enum: ['CARD', 'CASH'], description: 'Single payment: the balance due is recorded in this method. Only CASH settles this way; CARD must be sent in `payments` with verified: true (the cashier confirmed the money arrived), otherwise 400 PAYMENT_NOT_VERIFIED' },
                   payments: {
                     type: 'array',
                     maxItems: 6,
                     description:
-                      'Split payment (status COMPLETED only). Amounts must add up to exactly the balance due; UPI and CARD parts need verified: true.',
+                      'Split payment (status COMPLETED only). Amounts must add up to exactly the balance due; CARD parts need verified: true.',
                     items: {
                       type: 'object',
                       properties: {
-                        method: { type: 'string', enum: ['UPI', 'CARD', 'CASH'] },
+                        method: { type: 'string', enum: ['CARD', 'CASH', 'DELIVEROO', 'UBER_EATS', 'JUST_EAT'] },
                         amountPaise: { type: 'integer', example: 18500 },
-                        reference: { type: 'string', description: 'UPI UTR or card approval code' },
+                        reference: { type: 'string', description: 'Card approval code' },
                         verified: { type: 'boolean', description: 'Cashier confirmed the online payment was received' },
                       },
                       required: ['method', 'amountPaise'],
                     },
                   },
                   idempotencyKey: { type: 'string', description: 'Repeat the same key when retrying a settle request; the settled bill is returned' },
-                  allowDuplicateReference: { type: 'boolean', description: 'Settle even though a UTR / approval code was already used on another bill of this outlet' },
+                  allowDuplicateReference: { type: 'boolean', description: 'Settle even though an approval code was already used on another bill of this outlet' },
                 },
                 required: ['status'],
               },
@@ -734,7 +837,7 @@ export const swaggerDocument = {
         responses: {
           200: { description: 'Success' },
           400: { description: 'PAYMENT_AMOUNT_MISMATCH / PAYMENT_NOT_VERIFIED / invalid transition' },
-          409: { description: 'ALREADY_SETTLED: the bill was settled or cancelled by another request. DUPLICATE_PAYMENT_REFERENCE: a UTR / approval code was already used on another bill (resend with allowDuplicateReference to settle anyway)' },
+          409: { description: 'ALREADY_SETTLED: the bill was settled or cancelled by another request. DUPLICATE_PAYMENT_REFERENCE: an approval code was already used on another bill (resend with allowDuplicateReference to settle anyway)' },
         },
       },
     },
@@ -754,7 +857,7 @@ export const swaggerDocument = {
                 type: 'object',
                 properties: {
                   amountPaise: { type: 'integer', example: 10000 },
-                  method: { type: 'string', enum: ['UPI', 'CARD', 'CASH'] },
+                  method: { type: 'string', enum: ['CARD', 'CASH', 'DELIVEROO', 'UBER_EATS', 'JUST_EAT'] },
                   status: { type: 'string', enum: ['PENDING', 'CONFIRMED', 'FAILED'] },
                 },
                 required: ['amountPaise', 'method'],

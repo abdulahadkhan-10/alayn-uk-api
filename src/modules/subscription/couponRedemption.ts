@@ -112,7 +112,7 @@ export async function redeemFreeCoupon(
     planName: `${coupon.code} VIP Promo Access`,
     monthlyFeePaise: 0,
     taxRatePercent: 0,
-    currency: 'INR',
+    currency: 'GBP',
     currentPeriodEnd: freeUntil,
     autoRenew: false,
   };

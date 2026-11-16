@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { BreakdownRow, ReportData, Totals } from '../aggregate';
 import { pctChange } from '../periods';
 
-// Excel and CSV renderings of a ReportData. Rupee values are numbers (paise / 100, 2 decimals),
+// Excel and CSV renderings of a ReportData. Pound values are numbers (paise / 100, 2 decimals),
 // never formatted strings, so they sum and sort in Excel. Missing values are empty cells.
 
 export type ReportSection =
@@ -30,15 +30,15 @@ function summaryTable(r: ReportData): Table {
   const c = r.totals.current;
   const p = r.totals.previous;
   const metrics: { name: string; key: keyof Totals; money: boolean }[] = [
-    { name: 'Net sales ₹', key: 'netSalesPaise', money: true },
+    { name: 'Net sales £', key: 'netSalesPaise', money: true },
     { name: 'Orders', key: 'orders', money: false },
-    { name: 'Average order value ₹', key: 'avgOrderPaise', money: true },
-    { name: 'Discounts ₹', key: 'discountPaise', money: true },
-    { name: 'Tax ₹', key: 'taxPaise', money: true },
-    { name: 'Service charge ₹', key: 'serviceChargePaise', money: true },
+    { name: 'Average order value £', key: 'avgOrderPaise', money: true },
+    { name: 'Discounts £', key: 'discountPaise', money: true },
+    { name: 'Tax £', key: 'taxPaise', money: true },
+    { name: 'Service charge £', key: 'serviceChargePaise', money: true },
     { name: 'Cancelled orders', key: 'cancelledOrders', money: false },
-    { name: 'Cancelled sales ₹', key: 'cancelledPaise', money: true },
-    { name: 'Waste ₹', key: 'wastePaise', money: true },
+    { name: 'Cancelled sales £', key: 'cancelledPaise', money: true },
+    { name: 'Waste £', key: 'wastePaise', money: true },
     { name: 'Items sold', key: 'itemsSold', money: false },
   ];
   const cell = (n: number | undefined, isMoney: boolean) => (n == null ? num(null) : isMoney ? money(n) : num(n));
@@ -54,8 +54,8 @@ function summaryTable(r: ReportData): Table {
 function trendTable(r: ReportData): Table {
   const hasPrev = r.comparison != null;
   const head = hasPrev
-    ? header('Period', 'Sales ₹', 'Orders', 'Waste ₹', 'Comparison sales ₹', 'Comparison orders', 'Change %')
-    : header('Period', 'Sales ₹', 'Orders', 'Waste ₹');
+    ? header('Period', 'Sales £', 'Orders', 'Waste £', 'Comparison sales £', 'Comparison orders', 'Change %')
+    : header('Period', 'Sales £', 'Orders', 'Waste £');
   return [head, ...r.trend.current.map((b, i) => {
     const row = [text(b.label), money(b.netSalesPaise), num(b.orders), money(b.wastePaise)];
     if (hasPrev) {
@@ -70,8 +70,8 @@ function trendTable(r: ReportData): Table {
 function itemsTable(r: ReportData): Table {
   const hasPrev = r.comparison != null;
   const head = hasPrev
-    ? header('Item', 'Category', 'Qty', 'Sales ₹', 'Comparison qty', 'Comparison sales ₹', 'Change %')
-    : header('Item', 'Category', 'Qty', 'Sales ₹');
+    ? header('Item', 'Category', 'Qty', 'Sales £', 'Comparison qty', 'Comparison sales £', 'Change %')
+    : header('Item', 'Category', 'Qty', 'Sales £');
   return [head, ...r.items.map((i) => {
     const row = [text(i.name), text(i.category), num(i.qty), money(i.salesPaise)];
     if (hasPrev) row.push(num(i.prevQty), money(i.prevSalesPaise), pct(i.changePct));
@@ -91,7 +91,7 @@ function breakdownTable(r: ReportData, rows: BreakdownRow[], names: { name: stri
   })];
 }
 
-const SALES_NAMES = { name: 'Name', value: 'Sales ₹', count: 'Orders' };
+const SALES_NAMES = { name: 'Name', value: 'Sales £', count: 'Orders' };
 
 function tableFor(r: ReportData, section: ReportSection): Table {
   switch (section) {
@@ -99,7 +99,7 @@ function tableFor(r: ReportData, section: ReportSection): Table {
     case 'trend': return trendTable(r);
     case 'items': return itemsTable(r);
     // Waste rows carry cost in the sales field and entry counts in the orders field.
-    case 'waste': return breakdownTable(r, r.waste, { name: 'Reason', value: 'Cost ₹', count: 'Entries' });
+    case 'waste': return breakdownTable(r, r.waste, { name: 'Reason', value: 'Cost £', count: 'Entries' });
     default: return breakdownTable(r, r[section], SALES_NAMES);
   }
 }

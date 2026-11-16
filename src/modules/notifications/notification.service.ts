@@ -105,7 +105,7 @@ export class NotificationService {
       businessId: order.businessId,
       role: Role.KITCHEN,
       title: 'New Order Received',
-      message: `Order #${orderRef} (₹${formattedAmount}) sent to kitchen.`,
+      message: `Order #${orderRef} (£${formattedAmount}) sent to kitchen.`,
       type: 'ORDER_PLACED',
       entityType: 'ORDER',
       entityId: order.id,
@@ -125,17 +125,15 @@ export class NotificationService {
       outletId: string;
       businessId?: string;
       amountPaise: number;
-      method: 'UPI' | 'CARD' | 'CASH';
+      method: 'CARD' | 'CASH';
       reference?: string | null;
     },
     skipEmit = false
   ) {
-    const amount = `₹${(bill.amountPaise / 100).toFixed(2)}`;
+    const amount = `£${(bill.amountPaise / 100).toFixed(2)}`;
     const where = bill.tableNumber ? `Table ${bill.tableNumber}` : `Order #${bill.orderNumber || bill.id.slice(0, 8)}`;
     const message =
-      bill.method === 'UPI'
-        ? `Says they paid ${amount} by UPI${bill.reference ? ` (UTR ${bill.reference})` : ''}. Check it, then print the bill.`
-        : `Will pay ${amount} by ${bill.method === 'CARD' ? 'card' : 'cash'} at the counter. Print the bill and collect.`;
+      `Will pay ${amount} by ${bill.method === 'CARD' ? 'card' : 'cash'} at the counter. Print the bill and collect.`;
 
     for (const role of [Role.STAFF, Role.MANAGER]) {
       await this.createAndEmit({
@@ -222,7 +220,7 @@ export class NotificationService {
         outletId: po.outletId,
         role: Role.SUPPLIER,
         title: 'New Purchase Order Received',
-        message: `${poRef} worth ₹${formattedAmount} has been sent to you.`,
+        message: `${poRef} worth £${formattedAmount} has been sent to you.`,
         type: 'PO_SENT',
         entityType: 'PURCHASE_ORDER',
         entityId: po.id,
@@ -250,7 +248,7 @@ export class NotificationService {
         outletId: po.outletId,
         role: Role.SUPPLIER,
         title: 'Purchase Order Cancelled',
-        message: `${poRef} worth ₹${formattedAmount} has been cancelled. Please do not dispatch it.`,
+        message: `${poRef} worth £${formattedAmount} has been cancelled. Please do not dispatch it.`,
         type: 'PO_CANCELLED',
         entityType: 'PURCHASE_ORDER',
         entityId: po.id,
@@ -398,7 +396,7 @@ export class NotificationService {
       businessId: waste.businessId,
       role: Role.MANAGER,
       title: 'High Waste Recorded',
-      message: `Waste logged for ${waste.itemName} (${waste.quantity} units, ₹${formattedCost}).`,
+      message: `Waste logged for ${waste.itemName} (${waste.quantity} units, £${formattedCost}).`,
       type: 'HIGH_WASTE_LOGGED',
       entityType: 'WASTE',
       entityId: waste.id,
@@ -411,7 +409,7 @@ export class NotificationService {
         businessId: waste.businessId,
         role: Role.BUSINESS_OWNER,
         title: 'Waste Alert for BO Manager',
-        message: `High waste logged: ${waste.itemName} (₹${formattedCost}).`,
+        message: `High waste logged: ${waste.itemName} (£${formattedCost}).`,
         type: 'HIGH_WASTE_LOGGED',
         entityType: 'WASTE',
         entityId: waste.id,

@@ -8,8 +8,9 @@ export interface PlanConfig {
   planCode: string;
   name: string;
   description: string;
-  monthlyFeePaise: number; // Base fee without GST
-  gstRatePercent: number; // 18%
+  monthlyFeePaise: number; // Monthly fee in pence, including VAT
+  yearlyFeePaise: number; // Fee in pence for a 12-month term, including VAT
+  gstRatePercent: number; // UK VAT rate (20%)
   features: string[];
 }
 
@@ -18,8 +19,9 @@ export const SUBSCRIPTION_PLANS: Record<string, PlanConfig> = {
     planCode: 'MONTHLY_STANDARD',
     name: 'Alayn Smart Branch Pro',
     description: 'Complete operational suite for 1 physical restaurant branch',
-    monthlyFeePaise: parseInt(process.env.OUTLET_MONTHLY_FEE_PAISE || '199900', 10), // ₹1,999
-    gstRatePercent: 18.0,
+    monthlyFeePaise: parseInt(process.env.OUTLET_MONTHLY_FEE_PAISE || '7900', 10), // £79
+    yearlyFeePaise: parseInt(process.env.OUTLET_YEARLY_FEE_PAISE || '60000', 10), // £600
+    gstRatePercent: 20.0,
     features: [
       'Unlimited POS Billing Counters & Table QR Tokens',
       'Real-time Kitchen Display System (KDS)',
@@ -39,16 +41,16 @@ export class SubscriptionService {
 
   getPlans() {
     return Object.values(SUBSCRIPTION_PLANS).map((plan) => {
-      const baseRupees = plan.monthlyFeePaise / 100;
-      const gstRupees = Math.round((baseRupees * plan.gstRatePercent) / 100 * 100) / 100;
-      const totalRupees = Math.round((baseRupees + gstRupees) * 100) / 100;
+      const totalPounds = plan.monthlyFeePaise / 100;
+      const gstPounds = Math.round((totalPounds - totalPounds / (1 + plan.gstRatePercent / 100)) * 100) / 100;
+      const basePounds = Math.round((totalPounds - gstPounds) * 100) / 100;
 
       return {
         ...plan,
-        basePriceRupees: baseRupees,
-        gstRupees: gstRupees,
-        totalPayableRupees: totalRupees,
-        totalPayablePaise: Math.round(totalRupees * 100)
+        basePricePounds: basePounds,
+        gstPounds: gstPounds,
+        totalPayablePounds: totalPounds,
+        totalPayablePaise: Math.round(totalPounds * 100)
       };
     });
   }
@@ -66,11 +68,13 @@ export class SubscriptionService {
     const validatedMonths = Math.max(1, Math.min(36, parseInt(String(months), 10) || 1));
     
     // Base amount before discount
-    const rawBaseRupees = (plan.monthlyFeePaise / 100) * validatedMonths;
+    // Each full 12 months is billed at the yearly rate, any remaining months at the monthly rate
+    const rawBasePounds =
+      (Math.floor(validatedMonths / 12) * plan.yearlyFeePaise + (validatedMonths % 12) * plan.monthlyFeePaise) / 100;
 
     // Apply Coupon if provided (Server-authoritative calculation)
     let appliedCoupon: any = null;
-    let discountRupees = 0;
+    let discountPounds = 0;
 
     if (couponCode && couponCode.trim()) {
       const normalized = couponCode.trim().toUpperCase();
@@ -85,20 +89,21 @@ export class SubscriptionService {
       }
 
       if (coupon.discountType === DiscountType.PERCENTAGE) {
-        discountRupees = Math.round(((rawBaseRupees * Number(coupon.discountValue)) / 100) * 100) / 100;
+        discountPounds = Math.round(((rawBasePounds * Number(coupon.discountValue)) / 100) * 100) / 100;
       } else {
-        discountRupees = Math.min(rawBaseRupees, Number(coupon.discountValue));
+        discountPounds = Math.min(rawBasePounds, Number(coupon.discountValue));
       }
 
       appliedCoupon = coupon;
     }
 
-    const finalBaseRupees = Math.max(0, rawBaseRupees - discountRupees);
-    const gstRupees = Math.round(((finalBaseRupees * plan.gstRatePercent) / 100) * 100) / 100;
-    const totalRupees = Math.round((finalBaseRupees + gstRupees) * 100) / 100;
-    const totalPaise = Math.round(totalRupees * 100);
-    const gstPaise = Math.round(gstRupees * 100);
-    const discountPaise = Math.round(discountRupees * 100);
+    // Plan fees are VAT-inclusive: the customer pays the listed price and VAT is the portion within it
+    const totalPounds = Math.round(Math.max(0, rawBasePounds - discountPounds) * 100) / 100;
+    const gstPounds = Math.round((totalPounds - totalPounds / (1 + plan.gstRatePercent / 100)) * 100) / 100;
+    const finalBasePounds = Math.round((totalPounds - gstPounds) * 100) / 100;
+    const totalPaise = Math.round(totalPounds * 100);
+    const gstPaise = Math.round(gstPounds * 100);
+    const discountPaise = Math.round(discountPounds * 100);
 
     // Generate unique Cashfree order ID
     const shortOutletId = outletId.replace(/-/g, '').substring(0, 8);
@@ -125,7 +130,7 @@ export class SubscriptionService {
       monthlyFeePaise: plan.monthlyFeePaise,
     });
 
-    // A coupon that covers the whole amount needs no gateway payment (Cashfree cannot take a ₹0
+    // A coupon that covers the whole amount needs no gateway payment (Cashfree cannot take a £0
     // order), so the subscription is activated directly for the chosen months
     if (totalPaise === 0) {
       const freeOrderId = `ALAYN_FREE_${shortOutletId}_${Date.now()}`;
@@ -136,7 +141,7 @@ export class SubscriptionService {
         cfOrderId: freeOrderId,
         amountPaise: 0,
         taxAmountPaise: 0,
-        currency: 'INR',
+        currency: 'GBP',
         paymentStatus: SubscriptionPaymentStatus.PENDING,
         couponId: appliedCoupon?.id,
         couponCode: appliedCoupon?.code,
@@ -153,11 +158,11 @@ export class SubscriptionService {
         cfOrderId: null,
         paymentSessionId: null,
         paidWithoutGateway: true,
-        orderAmountRupees: 0,
-        baseAmountRupees: 0,
-        discountRupees,
-        gstAmountRupees: 0,
-        currency: 'INR',
+        orderAmountPounds: 0,
+        baseAmountPounds: 0,
+        discountPounds,
+        gstAmountPounds: 0,
+        currency: 'GBP',
         months: validatedMonths,
         subscription: result.subscription,
         coupon: appliedCoupon
@@ -165,7 +170,7 @@ export class SubscriptionService {
               code: appliedCoupon.code,
               discountType: appliedCoupon.discountType,
               discountValue: Number(appliedCoupon.discountValue),
-              discountRupees,
+              discountPounds,
             }
           : null,
         plan: {
@@ -188,8 +193,8 @@ export class SubscriptionService {
     // Create Cashfree Order
     const cfOrder = await this.cashfree.createOrder({
       orderId: cfOrderId,
-      orderAmount: totalRupees,
-      orderCurrency: 'INR',
+      orderAmount: totalPounds,
+      orderCurrency: 'GBP',
       customerDetails: {
         customerId: userId,
         customerName: customerInfo?.name || 'Restaurant Business Owner',
@@ -217,7 +222,7 @@ export class SubscriptionService {
       cfOrderId,
       amountPaise: totalPaise,
       taxAmountPaise: gstPaise,
-      currency: 'INR',
+      currency: 'GBP',
       paymentSessionId: cfOrder.payment_session_id,
       paymentStatus: SubscriptionPaymentStatus.PENDING,
       couponId: appliedCoupon?.id,
@@ -230,18 +235,18 @@ export class SubscriptionService {
       orderId: cfOrderId,
       cfOrderId: cfOrder.cf_order_id,
       paymentSessionId: cfOrder.payment_session_id,
-      orderAmountRupees: totalRupees,
-      baseAmountRupees: finalBaseRupees,
-      discountRupees,
-      gstAmountRupees: gstRupees,
-      currency: 'INR',
+      orderAmountPounds: totalPounds,
+      baseAmountPounds: finalBasePounds,
+      discountPounds,
+      gstAmountPounds: gstPounds,
+      currency: 'GBP',
       months: validatedMonths,
       coupon: appliedCoupon
         ? {
             code: appliedCoupon.code,
             discountType: appliedCoupon.discountType,
             discountValue: Number(appliedCoupon.discountValue),
-            discountRupees,
+            discountPounds,
           }
         : null,
       plan: {
@@ -273,17 +278,17 @@ export class SubscriptionService {
     const successfulPayment = paymentsList.find((p) => p.payment_status === 'SUCCESS') || paymentsList[0];
 
     // Anti-fraud: Verify paid amount matches what was charged
-    const expectedRupees = payment.amountPaise / 100;
-    const paidRupees = Number(cfOrder.order_amount);
-    if (paidRupees < expectedRupees) {
-      console.error(`[SubscriptionService] Paid amount mismatch for order ${cfOrderId}: paid ₹${paidRupees}, expected ₹${expectedRupees}`);
+    const expectedPounds = payment.amountPaise / 100;
+    const paidPounds = Number(cfOrder.order_amount);
+    if (paidPounds < expectedPounds) {
+      console.error(`[SubscriptionService] Paid amount mismatch for order ${cfOrderId}: paid £${paidPounds}, expected £${expectedPounds}`);
       throw new AppError('PAYMENT_AMOUNT_MISMATCH', 'Paid amount is less than the required subscription fee.', 400);
     }
 
     if (cfOrder.order_status === 'PAID' || successfulPayment?.payment_status === 'SUCCESS') {
       const result = await this.repository.markPaymentSuccess(cfOrderId, {
         cfPaymentId: successfulPayment?.cf_payment_id ? String(successfulPayment.cf_payment_id) : undefined,
-        paymentMethod: successfulPayment?.payment_group || successfulPayment?.payment_method || 'UPI',
+        paymentMethod: successfulPayment?.payment_group || successfulPayment?.payment_method || 'CARD',
         rawPayload: cfOrder,
         paidAt: new Date()
       });
@@ -385,7 +390,7 @@ export class SubscriptionService {
       daysRemaining,
       planCode: subscription.planCode,
       planName: subscription.planName,
-      monthlyFeeRupees: subscription.monthlyFeePaise / 100,
+      monthlyFeePounds: subscription.monthlyFeePaise / 100,
       currentPeriodStart: subscription.currentPeriodStart,
       currentPeriodEnd: subscription.currentPeriodEnd,
       recentPayments: subscription.payments
@@ -401,10 +406,10 @@ export class SubscriptionService {
       outletId: rec.outletId,
       outletName: rec.outlet?.name || 'Branch Outlet',
       outletCity: rec.outlet?.city || '',
-      amountRupees: rec.amountPaise / 100,
-      taxRupees: rec.taxAmountPaise / 100,
+      amountPounds: rec.amountPaise / 100,
+      taxPounds: rec.taxAmountPaise / 100,
       status: rec.paymentStatus,
-      paymentMethod: rec.paymentMethod || 'UPI',
+      paymentMethod: rec.paymentMethod || 'CARD',
       paidAt: rec.paidAt || rec.createdAt,
       createdAt: rec.createdAt
     }));
@@ -459,7 +464,7 @@ export class SubscriptionService {
       const discountLabel =
         coupon.discountType === DiscountType.PERCENTAGE
           ? `${coupon.discountValue}% OFF`
-          : `₹${coupon.discountValue} OFF`;
+          : `£${coupon.discountValue} OFF`;
 
       return {
         valid: true,
@@ -508,11 +513,11 @@ export class SubscriptionService {
       };
     }
 
-    // For partial discount coupons (e.g., 20% OFF, ₹500 OFF)
+    // For partial discount coupons (e.g., 20% OFF, £500 OFF)
     const discountLabel =
       coupon.discountType === DiscountType.PERCENTAGE
         ? `${discountVal}% OFF`
-        : `₹${discountVal} OFF`;
+        : `£${discountVal} OFF`;
 
     return {
       success: true,

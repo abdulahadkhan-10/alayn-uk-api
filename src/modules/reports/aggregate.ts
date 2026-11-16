@@ -3,7 +3,7 @@ import { ONE_DAY_MS, BUSINESS_DAY_START_HOUR, businessDayStart, businessParts, o
 
 // Pure report aggregation: turns loaded orders and waste rows into the ReportData that every
 // report surface (API, PDF, Excel, page, Ask Alayn, emails) renders. No database access here.
-// Money stays in integer paise. Every hour/weekday/day bucket is computed in India time.
+// Money stays in integer paise. Every hour/weekday/day bucket is computed in UK time.
 
 export type Channel = 'TABLE' | 'QR' | 'COUNTER' | 'DELIVERY';
 export type Granularity = 'hour' | 'day' | 'week' | 'month';
@@ -22,7 +22,7 @@ export interface RawOrder {
   id: string; outletId: string; createdAt: Date; source: Channel; status: string;
   subtotalPaise: number; discountPaise: number; cgstPaise: number; sgstPaise: number; serviceTaxPaise: number;
   items: { menuItemId: string; quantity: number; subtotalPaise: number }[];
-  payments: { method: 'UPI' | 'CARD' | 'CASH' | 'SWIGGY' | 'ZOMATO' | 'EAZYDINER'; amountPaise: number }[]; // CONFIRMED payments only
+  payments: { method: 'CARD' | 'CASH' | 'DELIVEROO' | 'UBER_EATS' | 'JUST_EAT' | 'UPI' | 'SWIGGY' | 'ZOMATO' | 'EAZYDINER'; amountPaise: number }[]; // CONFIRMED payments only
 }
 
 export interface RawWaste {
@@ -70,24 +70,28 @@ const MONDAY_FIRST = [1, 2, 3, 4, 5, 6, 0];
 const HOUR_MS = 60 * 60 * 1000;
 const CHANNEL_LABELS: Record<Channel, string> = { TABLE: 'Dine-in (table)', QR: 'QR order', COUNTER: 'Counter', DELIVERY: 'Delivery' };
 const PAYMENT_LABELS: Record<string, string> = {
-  UPI: 'UPI',
   CARD: 'Card',
   CASH: 'Cash',
+  DELIVEROO: 'Deliveroo',
+  UBER_EATS: 'Uber Eats',
+  JUST_EAT: 'Just Eat',
+  // Legacy methods, kept so old bills still report correctly
+  UPI: 'UPI',
   SWIGGY: 'Swiggy',
   ZOMATO: 'Zomato',
   EAZYDINER: 'EazyDiner',
 };
 const WASTE_LABELS: Record<string, string> = { SPOILAGE: 'Spoilage', OVER_PREP: 'Over-preparation', RETURN: 'Returned', ERROR: 'Mistake' };
-const MIN_ITEM_MOVE_PAISE = 50000; // ₹500
+const MIN_ITEM_MOVE_PAISE = 50000; // £500
 const MIN_SHARE_MOVE_POINTS = 5;
 const MIN_WASTE_MOVE_PCT = 20;
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const zero = (): Figures => ({ netSalesPaise: 0, orders: 0 });
 
-export function formatRupees(paise: number): string {
+export function formatMoney(paise: number): string {
   const sign = paise < 0 ? '-' : '';
-  return `${sign}₹${(Math.abs(paise) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+  return `${sign}£${(Math.abs(paise) / 100).toLocaleString('en-GB', { maximumFractionDigits: 0 })}`;
 }
 
 export function autoGranularity(range: DateRange): Granularity {
@@ -343,15 +347,15 @@ export function buildHighlights(r: Omit<ReportData, 'highlights'>): string[] {
   const compareText = r.comparison ? r.comparison.compareLabel.replace(/^vs /, '') : '';
 
   if (r.comparison && sales != null) {
-    out.push(`Sales ${formatRupees(cur.netSalesPaise)}, ${sales >= 0 ? 'up' : 'down'} ${Math.abs(sales)}% vs ${compareText}`);
+    out.push(`Sales ${formatMoney(cur.netSalesPaise)}, ${sales >= 0 ? 'up' : 'down'} ${Math.abs(sales)}% vs ${compareText}`);
   } else {
-    out.push(`Sales ${formatRupees(cur.netSalesPaise)}`);
+    out.push(`Sales ${formatMoney(cur.netSalesPaise)}`);
   }
 
   if (!r.comparison) {
     if (r.trend.granularity === 'day') {
       const best = r.trend.current.reduce<TrendBucket | null>((b, x) => (!b || x.netSalesPaise > b.netSalesPaise ? x : b), null);
-      if (best && best.netSalesPaise > 0) out.push(`Busiest day: ${best.label} (${formatRupees(best.netSalesPaise)})`);
+      if (best && best.netSalesPaise > 0) out.push(`Busiest day: ${best.label} (${formatMoney(best.netSalesPaise)})`);
     }
     return out.slice(0, 5);
   }
@@ -362,10 +366,10 @@ export function buildHighlights(r: Omit<ReportData, 'highlights'>): string[] {
   const gain = moves.reduce<(typeof moves)[number] | null>((b, m) => (!b || m.delta > b.delta ? m : b), null);
   if (gain && gain.delta >= MIN_ITEM_MOVE_PAISE) {
     const pct = gain.item.changePct != null ? ` (${gain.item.changePct}%)` : '';
-    out.push(`${gain.item.name} grew the most: +${formatRupees(gain.delta)}${pct}`);
+    out.push(`${gain.item.name} grew the most: +${formatMoney(gain.delta)}${pct}`);
   }
   const drop = moves.reduce<(typeof moves)[number] | null>((b, m) => (!b || m.delta < b.delta ? m : b), null);
-  if (drop && -drop.delta >= MIN_ITEM_MOVE_PAISE) out.push(`${drop.item.name} fell the most: −${formatRupees(-drop.delta)}`);
+  if (drop && -drop.delta >= MIN_ITEM_MOVE_PAISE) out.push(`${drop.item.name} fell the most: −${formatMoney(-drop.delta)}`);
 
   const prevSales = r.totals.previous?.netSalesPaise ?? 0;
   if (prevSales > 0 && cur.netSalesPaise > 0) {
@@ -382,7 +386,7 @@ export function buildHighlights(r: Omit<ReportData, 'highlights'>): string[] {
 
   const waste = r.totals.changePct.wastePaise;
   if (waste != null && Math.abs(waste) >= MIN_WASTE_MOVE_PCT) {
-    out.push(`Waste ${formatRupees(cur.wastePaise)}, ${waste >= 0 ? 'up' : 'down'} ${Math.abs(waste)}%`);
+    out.push(`Waste ${formatMoney(cur.wastePaise)}, ${waste >= 0 ? 'up' : 'down'} ${Math.abs(waste)}%`);
   }
   return out.slice(0, 5);
 }

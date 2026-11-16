@@ -13,8 +13,10 @@ import { buildReport } from '../reports/report.service';
 import { businessOutletIds } from '../reports/access';
 import { ReportRequest } from '../reports/query';
 import { DayStrings, PeriodPreset } from '../reports/periods';
-import { ReportData, formatRupees } from '../reports/aggregate';
+import { ReportData, formatMoney } from '../reports/aggregate';
 import { clock12, getStaffToday, instant12 } from '../analytics/staffToday';
+import { summarizeRecipeCost } from '../recipes/recipeCost';
+import { VarianceService } from '../recipes/variance.service';
 
 /*
  * Which parts of the café's data a question needs. Sending only those keeps each question to a
@@ -47,7 +49,7 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_ENUM = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'] as const;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-const rupees = (paise: number) => `₹${Math.round(paise / 100).toLocaleString('en-IN')}`;
+const pounds = (paise: number) => `£${Math.round(paise / 100).toLocaleString('en-GB')}`;
 const pct = (current: number, previous: number) =>
   previous > 0 ? `${current >= previous ? '+' : ''}${(((current - previous) / previous) * 100).toFixed(1)}%` : 'n/a';
 const dayKey = (instant: Date) => {
@@ -82,7 +84,7 @@ export function summariseSales(orders: SettledOrder[], now: Date): string[] {
   const lines: string[] = [];
 
   const last14 = Array.from({ length: 14 }, (_, k) => daysAgo(14 - k));
-  lines.push(`- Daily sales, last 14 days: ${last14.map((d) => `${dayName(d)} ${rupees(dayTotal(d))}`).join(', ')}`);
+  lines.push(`- Daily sales, last 14 days: ${last14.map((d) => `${dayName(d)} ${pounds(dayTotal(d))}`).join(', ')}`);
 
   const sumDays = (from: number, to: number) => {
     let total = 0;
@@ -91,7 +93,7 @@ export function summariseSales(orders: SettledOrder[], now: Date): string[] {
   };
   const last7 = sumDays(1, 7);
   const prev7 = sumDays(8, 14);
-  lines.push(`- Last 7 days ${rupees(last7)} vs the 7 days before ${rupees(prev7)} (${pct(last7, prev7)})`);
+  lines.push(`- Last 7 days ${pounds(last7)} vs the 7 days before ${pounds(prev7)} (${pct(last7, prev7)})`);
 
   // Complete days only, so a half-finished today doesn't look like a drop
   const thisMonthStart = businessDayStart(year, month, 1);
@@ -111,10 +113,10 @@ export function summariseSales(orders: SettledOrder[], now: Date): string[] {
   }
   if (day > 1) {
     lines.push(
-      `- This month, 1–${day - 1} ${MONTHS[month]} (complete days): ${rupees(thisMonthComplete)} vs 1–${day - 1} ${MONTHS[lastMonth.month]}: ${rupees(lastMonthSameDays)} (${pct(thisMonthComplete, lastMonthSameDays)})`,
+      `- This month, 1–${day - 1} ${MONTHS[month]} (complete days): ${pounds(thisMonthComplete)} vs 1–${day - 1} ${MONTHS[lastMonth.month]}: ${pounds(lastMonthSameDays)} (${pct(thisMonthComplete, lastMonthSameDays)})`,
     );
   }
-  lines.push(`- Last month (${MONTHS[lastMonth.month]} ${lastMonth.year}) total: ${rupees(lastMonthTotal)}`);
+  lines.push(`- Last month (${MONTHS[lastMonth.month]} ${lastMonth.year}) total: ${pounds(lastMonthTotal)}`);
 
   // Typical sales per hour over the last 4 weeks, averaged over days that had sales
   const fourWeeksAgo = daysAgo(28).getTime();
@@ -131,7 +133,7 @@ export function summariseSales(orders: SettledOrder[], now: Date): string[] {
     const hours = avg.map((v, h) => ({ h, v })).filter((x) => x.v > 0);
     const busiest = [...hours].sort((a, b) => b.v - a.v).slice(0, 3).map((x) => hourName(x.h));
     lines.push(
-      `- Typical sales by hour (average per trading day, last 4 weeks, ${tradingDays.size} days): ${hours.map((x) => `${hourName(x.h)} ${rupees(x.v)}`).join(', ')}`,
+      `- Typical sales by hour (average per trading day, last 4 weeks, ${tradingDays.size} days): ${hours.map((x) => `${hourName(x.h)} ${pounds(x.v)}`).join(', ')}`,
     );
     lines.push(`- Busiest hours: ${busiest.join(', ')}`);
   } else {
@@ -163,7 +165,7 @@ async function salesSection(outletId: string | undefined, businessId: string | u
         if (t >= monthStart) mtd += ord.subtotalPaise;
         if (t >= todayStart) today += ord.subtotalPaise;
       }
-      return `${o.name}: today ${rupees(today)}, this month ${rupees(mtd)}`;
+      return `${o.name}: today ${pounds(today)}, this month ${pounds(mtd)}`;
     });
     if (per.length) lines.push(`- Sales by outlet: ${per.join('; ')}`);
   }
@@ -255,6 +257,75 @@ async function stockSection(outletId: string | undefined, businessId: string | u
   return [
     `- Stock expiring in the next 7 days: ${expiring.length ? describe(expiring, 'expires') : 'None'}`,
     `- Expired but still in stock: ${expired.length ? describe(expired, 'expired') : 'None'}`,
+    ...(await usageVarianceLines(outletId, now)),
+  ];
+}
+
+/** Ingredients used more than sales and logged waste explain, for one branch. Missing detail never breaks the section. */
+async function usageVarianceLines(outletId: string | undefined, now: Date): Promise<string[]> {
+  if (isAllOutlets(outletId)) return [];
+  try {
+    const v = await new VarianceService().getVariance(outletId, {}, now);
+    const over = v.items.filter((i) => i.inRecipes && i.variancePaise > 0).slice(0, 5);
+    if (v.items.length === 0) {
+      return ['- Usage vs recipes (last 30 days): not measurable yet; needs stock counts at least a day apart'];
+    }
+    if (over.length === 0) return ['- Usage vs recipes (last 30 days, between stock counts): nothing unexplained'];
+    const text = over.map((i) => `${i.name} ${+i.variance.toFixed(2)} ${i.unit} more than sales and logged waste explain (about ${pounds(i.variancePaise)})`).join('; ');
+    return [`- Usage vs recipes (last 30 days, between stock counts): ${text}`];
+  } catch (err) {
+    logger.error({ err, outletId }, '[AlaynAI] Usage variance failed');
+    return [];
+  }
+}
+
+export interface RecipeCostRow {
+  menuItemId: string;
+  outletId: string;
+  quantityPerUnit: number;
+  wastagePercent: number;
+  unitCostPaise: number;
+}
+
+/**
+ * Food cost per dish from recipes (ingredient cost per portion against the selling price). A dish with
+ * recipes at several branches is averaged. Pure (no database) so it can be tested directly.
+ */
+export function summariseRecipeCosts(dishes: { id: string; name: string; pricePaise: number }[], rows: RecipeCostRow[]): string[] {
+  const byDish = new Map<string, Map<string, RecipeCostRow[]>>();
+  for (const r of rows) {
+    const outlets = byDish.get(r.menuItemId) ?? new Map<string, RecipeCostRow[]>();
+    const list = outlets.get(r.outletId) ?? [];
+    list.push(r);
+    outlets.set(r.outletId, list);
+    byDish.set(r.menuItemId, outlets);
+  }
+
+  const costed = dishes
+    .map((d) => {
+      const outlets = byDish.get(d.id);
+      if (!outlets) return null;
+      const costs = [...outlets.values()].map((lines) =>
+        summarizeRecipeCost(lines.map((l) => ({ quantityPerUnit: l.quantityPerUnit, wastagePercent: l.wastagePercent, unitCostPaise: l.unitCostPaise })), d.pricePaise).costPerPortionPaise,
+      );
+      const cost = Math.round(costs.reduce((a, b) => a + b, 0) / costs.length);
+      return { name: d.name, price: d.pricePaise, cost, percent: d.pricePaise > 0 ? (cost / d.pricePaise) * 100 : null };
+    })
+    .filter((d): d is NonNullable<typeof d> => d !== null);
+
+  if (costed.length === 0) {
+    return ['- Food cost and margin per dish: no dish has a recipe yet, so it is not known. Say so if asked, and mention recipes can be added from the Menu page; compare dishes by sales instead'];
+  }
+  const money = (paise: number) => `\u00A3${(paise / 100).toFixed(2)}`;
+  const describe = (d: (typeof costed)[number]) =>
+    `${d.name} ${d.percent === null ? 'n/a' : `${d.percent.toFixed(0)}%`} (costs ${money(d.cost)}, price ${money(d.price)}, margin ${money(d.price - d.cost)})`;
+  const withPercent = costed.filter((d) => d.percent !== null);
+  const highest = [...withPercent].sort((a, b) => (b.percent as number) - (a.percent as number)).slice(0, 5);
+  const lowestMargin = [...costed].sort((a, b) => a.price - a.cost - (b.price - b.cost)).slice(0, 5);
+  return [
+    `- Food cost per dish (from recipes; ingredient cost as % of price): ${costed.length} of ${dishes.length} active dishes have a recipe, the rest have no food cost figure`,
+    `- Highest food cost: ${highest.map(describe).join('; ') || 'n/a'}`,
+    `- Lowest margin per portion: ${lowestMargin.map(describe).join('; ')}`,
   ];
 }
 
@@ -276,23 +347,35 @@ async function menuSection(outletId: string | undefined, businessId: string | un
     }),
     prisma.menuItem.findMany({
       where: { ...menuItemScope(outletId, businessId), isActive: true, deletedAt: null },
-      select: { id: true, name: true },
+      select: { id: true, name: true, pricePaise: true },
       take: 200,
     }),
   ]);
+  const recipeRows = await prisma.recipe.findMany({
+    where: { ...scope, item: { deletedAt: null } },
+    select: { menuItemId: true, outletId: true, quantityPerUnit: true, wastagePercent: true, item: { select: { unitCostPaise: true } } },
+  });
   const info = new Map(soldItems.map((m) => [m.id, m]));
   const rows = sold.map((s) => {
     const m = info.get(s.menuItemId);
     if (!m) return null;
-    return `${m.name}: ${s._sum.quantity ?? 0} sold, ${rupees(s._sum.subtotalPaise ?? 0)}, price ${rupees(m.pricePaise)}`;
+    return `${m.name}: ${s._sum.quantity ?? 0} sold, ${pounds(s._sum.subtotalPaise ?? 0)}, price ${pounds(m.pricePaise)}`;
   }).filter(Boolean);
 
   const soldIds = new Set(sold.map((s) => s.menuItemId));
   const unsold = activeItems.filter((m) => !soldIds.has(m.id)).map((m) => m.name);
   return [
     `- Menu items this month (completed orders, before tax): ${rows.length ? rows.join('; ') : 'none sold yet'}`,
-    // Menu items aren't linked to stock, so there is no food cost per dish to quote
-    '- Food cost and margin per dish: not tracked in Alayn (menu items are not linked to stock). Say so if asked; compare dishes by sales instead',
+    ...summariseRecipeCosts(
+      activeItems,
+      recipeRows.map((r) => ({
+        menuItemId: r.menuItemId,
+        outletId: r.outletId,
+        quantityPerUnit: r.quantityPerUnit.toNumber(),
+        wastagePercent: r.wastagePercent.toNumber(),
+        unitCostPaise: r.item.unitCostPaise,
+      })),
+    ),
     `- Active menu items not sold at all this month: ${unsold.length ? unsold.slice(0, 20).join(', ') : 'None'}`,
   ];
 }
@@ -310,7 +393,7 @@ export function reportToContextLines(r: ReportData): string[] {
       : `- Period: ${r.period.label} (current), no comparison`,
   ];
   const metric = (name: string, key: keyof typeof cur, money: boolean) => {
-    const fmt = (n: number) => (money ? formatRupees(n) : n.toLocaleString('en-IN'));
+    const fmt = (n: number) => (money ? formatMoney(n) : n.toLocaleString('en-GB'));
     lines.push(prev ? `- ${name}: ${fmt(cur[key])} now vs ${fmt(prev[key])} before (${changeText(ch[key])})` : `- ${name}: ${fmt(cur[key])}`);
   };
   metric('Sales', 'netSalesPaise', true);
@@ -324,14 +407,14 @@ export function reportToContextLines(r: ReportData): string[] {
 
   const rows = (title: string, list: ReportData['channels']) => {
     const parts = list.map((c) =>
-      `${c.label} ${formatRupees(c.current.netSalesPaise)} (${c.sharePct.toFixed(1)}% of sales${c.previous ? `, ${changeText(c.changePct)}` : ''})`);
+      `${c.label} ${formatMoney(c.current.netSalesPaise)} (${c.sharePct.toFixed(1)}% of sales${c.previous ? `, ${changeText(c.changePct)}` : ''})`);
     if (parts.length) lines.push(`- ${title}: ${parts.join('; ')}`);
   };
   rows('Channels', r.channels);
   rows('Payments', r.payments);
 
   const itemPart = (i: ReportData['items'][number]) =>
-    `${i.name} ${formatRupees(i.salesPaise)} (${i.qty} sold${i.prevSalesPaise != null ? `, ${changeText(i.changePct)}` : ''})`;
+    `${i.name} ${formatMoney(i.salesPaise)} (${i.qty} sold${i.prevSalesPaise != null ? `, ${changeText(i.changePct)}` : ''})`;
   if (r.items.length) lines.push(`- Top items (item sales before bill discounts): ${r.items.slice(0, 10).map(itemPart).join('; ')}`);
   const drops = r.items.filter((i) => i.changePct != null && i.changePct < 0 && i.prevSalesPaise != null)
     .sort((a, b) => (a.salesPaise - (a.prevSalesPaise ?? 0)) - (b.salesPaise - (b.prevSalesPaise ?? 0))).slice(0, 5);

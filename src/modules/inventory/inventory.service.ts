@@ -96,7 +96,7 @@ export class InventoryService {
           },
         });
 
-        // Trigger high waste notification if loss is >= ₹500 (50,000 paise)
+        // Trigger high waste notification if loss is >= £500 (50,000 paise)
         if (costAtLoggingPaise >= 50000) {
           NotificationService.notifyHighWasteLogged({
             id: wasteLog.id,

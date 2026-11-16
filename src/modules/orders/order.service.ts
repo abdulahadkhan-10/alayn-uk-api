@@ -3,15 +3,17 @@ import { AppError } from '../../utils/AppError';
 import { prisma } from '../../config/prisma';
 import { Prisma } from '@prisma/client';
 import { NotificationService } from '../notifications/notification.service';
+import { deductStockForOrder, LowStockHit } from '../recipes/stockDeduction';
 import { outletDateKey, outletStartOfDay } from '../../utils/outletTime';
 import { outletScope } from '../../utils/tenantScope';
 import { BillRates, BillTotals, calculateBill, isDineIn } from './billing';
 import { priceItemWithModifiers } from './modifierPricing';
 import {
+  PaymentMethodCode,
   SettlementPaymentInput,
   confirmedPaidPaise,
   describePayments,
-  formatRupees,
+  formatMoney,
   isOnlineMethod,
   summarizePayments,
   validateSettlementPayments,
@@ -106,7 +108,7 @@ export class OrderService {
   }
 
   /**
-   * A UPI UTR / card approval code identifies one transaction, so seeing it on a second bill usually means
+   * A card approval code identifies one transaction, so seeing it on a second bill usually means
    * a typo or the same customer payment being counted twice. Stops the settle unless the cashier confirms.
    */
   private async assertReferencesUnused(
@@ -143,7 +145,7 @@ export class OrderService {
         const bill = earlier.order?.orderNumber ? `bill #${earlier.order.orderNumber}` : 'another bill';
         throw new AppError(
           'DUPLICATE_PAYMENT_REFERENCE',
-          `${label} ${p.reference} was already used on ${bill} (${formatRupees(earlier.amountPaise)}). Check it, or settle anyway if it is correct.`,
+          `${label} ${p.reference} was already used on ${bill} (${formatMoney(earlier.amountPaise)}). Check it, or settle anyway if it is correct.`,
           409
         );
       }
@@ -151,8 +153,8 @@ export class OrderService {
   }
 
   /**
-   * Remove (or restore) the service charge on an open dine-in bill. Service charge is voluntary in India
-   * (CCPA guidelines, upheld by the Delhi High Court in 2025): the customer may ask for it to be removed.
+   * Remove (or restore) the service charge on an open dine-in bill. Service charge is voluntary in the UK
+   * (the Government's tipping code): the customer may ask for it to be removed.
    */
   async setServiceChargeWaiver(
     outletId: string,
@@ -208,7 +210,7 @@ export class OrderService {
     const restaurantName = outlet?.name || outlet?.business?.name || 'ALAYN';
     const prefix = restaurantName.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase().padEnd(3, 'X');
 
-    // Date and daily sequence use India time, so numbering restarts at local midnight (not 5:30 AM)
+    // Date and daily sequence use UK time, so numbering restarts at local midnight (not at UTC midnight)
     const now = new Date();
     const dateKey = outletDateKey(now);
 
@@ -291,8 +293,8 @@ export class OrderService {
     // A diner ordering from the table QR (table-token auth, see order.routes). Their phone is never trusted
     // with payment, discounts or coupons. Ordering records no payment at all: the diner says how they'll pay
     // once, for the whole bill, when they ask for it (requestTableBill). Older pages that still send a
-    // payment method with each round (they picked UPI by default) are ignored, so they can't flag a bill
-    // as "UPI to verify" when nobody paid.
+    // payment method with each round (they picked a method by default) are ignored, so they can't flag a bill
+    // as "card to verify" when nobody paid.
     const isCustomerOrder = data.source === 'QR' && !!data.tableToken;
 
     // Check if outlet permits direct customer ordering via QR
@@ -379,7 +381,7 @@ export class OrderService {
       gstRegistrationType: outlet.gstRegistrationType,
     });
 
-    // How the diner says they paid lives on their payment record (method, amount, UTR), not in this name
+    // How the diner says they paid lives on their payment record (method, amount, approval code), not in this name
     const placedByName = isCustomerOrder ? 'Customer (QR)' : user?.name || (resolvedSource === 'QR' ? 'Customer (QR)' : 'Staff');
     const placedByRole = isCustomerOrder ? 'QR' : user?.role || (resolvedSource === 'QR' ? 'QR' : 'STAFF');
 
@@ -579,7 +581,7 @@ export class OrderService {
   async createPayment(
     outletId: string,
     orderId: string,
-    data: { amountPaise: number; method: 'UPI' | 'CARD' | 'CASH'; status: 'PENDING' | 'CONFIRMED' | 'FAILED' },
+    data: { amountPaise: number; method: PaymentMethodCode; status: 'PENDING' | 'CONFIRMED' | 'FAILED' },
     businessId?: string | null
   ) {
     const order = await this.orderRepository.findOrderById(outletId, orderId, businessId);
@@ -598,7 +600,7 @@ export class OrderService {
     status: 'SENT_TO_KITCHEN' | 'PREPARING' | 'READY' | 'SERVED' | 'DISPATCHED' | 'COMPLETED' | 'CANCELLED',
     comment?: string,
     changedById?: string,
-    paymentMethod?: 'CASH' | 'CARD' | 'UPI' | 'SWIGGY' | 'ZOMATO' | 'EAZYDINER',
+    paymentMethod?: PaymentMethodCode,
     customerName?: string,
     customerPhone?: string,
     businessId?: string | null,
@@ -687,8 +689,11 @@ export class OrderService {
 
       const splitPayments = settlement?.payments;
 
+      // Ingredients that ran low because of this bill; alerted only once the bill has really committed
+      let lowStockHits: LowStockHit[] = [];
+
       // Everything below commits together: a rejected payment leaves the open bill exactly as it was
-      return prisma.$transaction(async (tx) => {
+      const settledBill = await prisma.$transaction(async (tx) => {
         // Claim the bill first. The conditional update takes the row lock, so of two simultaneous settle
         // requests only one gets past here; the other sees count 0 and records no payments.
         const claimed = await tx.order.updateMany({
@@ -744,22 +749,21 @@ export class OrderService {
           paymentNote = `Paid ${describePayments(toRecord)}`;
         } else if (balanceDuePaise > 0) {
           // Single payment (original flow): the whole remaining balance in one method
-          let method: 'CASH' | 'CARD' | 'UPI' | 'SWIGGY' | 'ZOMATO' | 'EAZYDINER' = paymentMethod || 'CASH';
+          let method: PaymentMethodCode = paymentMethod || 'CASH';
           if (!paymentMethod && comment) {
             const methodCandidate = comment.toUpperCase();
             if (methodCandidate.includes('CARD')) method = 'CARD';
-            else if (methodCandidate.includes('UPI')) method = 'UPI';
-            else if (methodCandidate.includes('SWIGGY')) method = 'SWIGGY';
-            else if (methodCandidate.includes('ZOMATO')) method = 'ZOMATO';
-            else if (methodCandidate.includes('EAZYDINER')) method = 'EAZYDINER';
+            else if (methodCandidate.includes('DELIVEROO')) method = 'DELIVEROO';
+            else if (methodCandidate.includes('UBER')) method = 'UBER_EATS';
+            else if (methodCandidate.includes('JUST')) method = 'JUST_EAT';
           }
 
-          // UPI / card money lands outside the till, so it is only recorded once the cashier confirms it
+          // Card money lands outside the till, so it is only recorded once the cashier confirms it
           // arrived: those settle through `payments` with verified: true (who and when are saved there)
           if (isOnlineMethod(method)) {
             throw new AppError(
               'PAYMENT_NOT_VERIFIED',
-              `Confirm the ${method === 'UPI' ? 'UPI' : 'card'} payment of ${formatRupees(balanceDuePaise)} was received before settling.`,
+              `Confirm the ${method === 'CARD' ? 'card' : 'partner'} payment of ${formatMoney(balanceDuePaise)} was received before settling.`,
               400
             );
           }
@@ -800,11 +804,26 @@ export class OrderService {
           }).catch(() => {});
         }
 
+        // Take the recipe ingredients of what was sold out of stock (dishes without a recipe are skipped)
+        lowStockHits = (await deductStockForOrder(tx, orderId)).lowStock;
+
         // Same shape as every other order response — the final bill is printed from this, so
         // items must carry their menu item (name) just like the pre-bill does
         const settled = await tx.order.findUnique({ where: { id: orderId }, include: ORDER_INCLUDE });
         return this.transformOrder(settled && (await this.withSettledBy([settled], tx))[0]);
       }, { maxWait: 10000, timeout: 15000 });
+
+      for (const hit of lowStockHits) {
+        NotificationService.notifyStockAlert({
+          id: hit.itemId,
+          itemName: hit.itemName,
+          type: 'LOW_STOCK',
+          message: `Low stock alert for ${hit.itemName}! Current stock is ${hit.stock} ${hit.unit} (Threshold: ${hit.threshold} ${hit.unit}).`,
+          outletId: order.outletId,
+          businessId: order.outlet?.businessId,
+        }).catch(() => {});
+      }
+      return settledBill;
     }
 
     // Free table if order is cancelled
@@ -1057,8 +1076,7 @@ export class OrderService {
       tableNumber: tokenRecord.tableNumber,
       tableOrderMode: (tokenRecord.outlet as any)?.tableOrderMode || 'WAITER_SERVICE',
       allowPayAtCounter: (tokenRecord.outlet as any)?.allowPayAtCounter ?? true,
-      upiId: tokenRecord.outlet?.upiId,
-      currency: 'INR',
+      currency: 'GBP',
       taxRates: {
         cgstRate: Number(tokenRecord.outlet?.cgstRateDecimal ?? 2.5),
         sgstRate: Number(tokenRecord.outlet?.sgstRateDecimal ?? 2.5),
@@ -1109,21 +1127,14 @@ export class OrderService {
   }
 
   /**
-   * The diner is done and asks for the bill from the table QR, saying how they'll pay: UPI from their phone
-   * (with the UTR if they have it), or card / cash at the counter. Recorded as one PENDING payment for the
+   * The diner is done and asks for the bill from the table QR, saying how they'll pay: card or cash at the counter. Recorded as one PENDING payment for the
    * whole amount due, replacing any earlier choice, and the floor staff are alerted to print the bill and
    * collect. Nothing is marked paid: the cashier confirms the money when settling.
    */
-  async requestTableBill(token: string, data: { paymentMethod: 'UPI' | 'CARD' | 'CASH'; paymentRef?: string }) {
+  async requestTableBill(token: string, data: { paymentMethod: 'CARD' | 'CASH'; paymentRef?: string }) {
     const tokenRecord = await this.findTableToken(token);
     const outlet = tokenRecord.outlet as any;
-    if (data.paymentMethod !== 'UPI' && outlet?.allowPayAtCounter === false) {
-      throw new AppError('PAY_AT_COUNTER_DISABLED', 'This restaurant takes payment by UPI from your phone only.', 400);
-    }
-    if (data.paymentMethod === 'UPI' && !outlet?.upiId) {
-      throw new AppError('UPI_NOT_AVAILABLE', 'This restaurant has not set up UPI payments. Please pay at the counter.', 400);
-    }
-    const reference = data.paymentMethod === 'UPI' && data.paymentRef ? data.paymentRef.trim().slice(0, 64) || null : null;
+    const reference: string | null = null;
 
     const result = await prisma.$transaction(async (tx) => {
       const order = await tx.order.findFirst({

@@ -80,7 +80,7 @@ export class WasteService {
       return log;
     });
 
-    // 5. High-waste alert for loss >= ₹500 (50,000 paise)
+    // 5. High-waste alert for loss >= £500 (50,000 paise)
     if (costAtLoggingPaise >= 50000) {
       // Find businessId if not passed in
       let resolvedBusinessId = businessId;

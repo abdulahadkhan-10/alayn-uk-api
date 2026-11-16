@@ -214,10 +214,10 @@ export class RestaurantCouponService {
 
     // 6. Minimum order value check
     if (coupon.minOrderPaise != null && subtotalPaise < coupon.minOrderPaise) {
-      const minAmountRupees = (coupon.minOrderPaise / 100).toFixed(0);
+      const minAmountPounds = (coupon.minOrderPaise / 100).toFixed(0);
       throw new AppError(
         'MIN_ORDER_NOT_MET',
-        `Minimum order amount of ₹${minAmountRupees} required for coupon ${formattedCode}`,
+        `Minimum order amount of £${minAmountPounds} required for coupon ${formattedCode}`,
         400
       );
     }

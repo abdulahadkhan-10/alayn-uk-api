@@ -1,21 +1,21 @@
 /**
- * Split payments — settling one bill with several payments (e.g. ₹100 cash + ₹185 UPI on a ₹285 bill).
+ * Split payments — settling one bill with several payments (e.g. £100 cash + £185 card on a £285 bill).
  *
  * All amounts are integer paise. A settlement is accepted only when the payments add up to exactly the
- * balance still due, and every online payment (UPI / card) has been confirmed as received by the cashier.
+ * balance still due, and every online payment (card / partner) has been confirmed as received by the cashier.
  * The frontend checkout mirrors these rules in alayn-frontend/src/lib/splitPayment.ts — keep them in sync.
  */
 import { AppError } from '../../utils/AppError';
 
-export type PaymentMethodCode = 'CASH' | 'CARD' | 'UPI' | 'SWIGGY' | 'ZOMATO' | 'EAZYDINER';
+export type PaymentMethodCode = 'CASH' | 'CARD' | 'DELIVEROO' | 'UBER_EATS' | 'JUST_EAT';
 
 /**
- * Dine-in partner platforms: settled in full as a single payment
+ * Delivery partner platforms: settled in full as a single payment
  */
-export const PLATFORM_METHODS: PaymentMethodCode[] = ['SWIGGY', 'ZOMATO', 'EAZYDINER'];
+export const PLATFORM_METHODS: PaymentMethodCode[] = ['DELIVEROO', 'UBER_EATS', 'JUST_EAT'];
 
 /** Methods where the money arrives outside the till, so the cashier must confirm it was received */
-export const ONLINE_METHODS: PaymentMethodCode[] = ['UPI', 'CARD', ...PLATFORM_METHODS];
+export const ONLINE_METHODS: PaymentMethodCode[] = ['CARD', ...PLATFORM_METHODS];
 
 export const MAX_SPLIT_PAYMENTS = 6;
 
@@ -43,11 +43,15 @@ export interface PaymentLike {
 export const isOnlineMethod = (method: string) => ONLINE_METHODS.includes(method as PaymentMethodCode);
 export const isPlatformMethod = (method: string) => PLATFORM_METHODS.includes(method as PaymentMethodCode);
 
-export const formatRupees = (paise: number) => `₹${(paise / 100).toFixed(2)}`;
+export const formatMoney = (paise: number) => `£${(paise / 100).toFixed(2)}`;
 
 const METHOD_LABELS: Record<string, string> = {
   CASH: 'Cash',
   CARD: 'Card',
+  DELIVEROO: 'Deliveroo',
+  UBER_EATS: 'Uber Eats',
+  JUST_EAT: 'Just Eat',
+  // Legacy methods, kept so old bills still read correctly
   UPI: 'UPI',
   SWIGGY: 'Swiggy',
   ZOMATO: 'Zomato',
@@ -74,7 +78,7 @@ export function validateSettlementPayments(
     throw new AppError('VALIDATION_ERROR', `A bill can be split across at most ${MAX_SPLIT_PAYMENTS} payments.`, 400);
   }
   if (payments.length > 1 && payments.some((p) => isPlatformMethod(p.method))) {
-    throw new AppError('VALIDATION_ERROR', 'Dine-in partner payments (Swiggy, Zomato, EazyDiner) cannot be split.', 400);
+    throw new AppError('VALIDATION_ERROR', 'Delivery partner payments (Deliveroo, Uber Eats, Just Eat) cannot be split.', 400);
   }
 
   const normalized = payments.map((p) => {
@@ -96,8 +100,8 @@ export function validateSettlementPayments(
     throw new AppError(
       'PAYMENT_AMOUNT_MISMATCH',
       gap > 0
-        ? `Payments add up to ${formatRupees(allocatedPaise)} but ${formatRupees(balanceDuePaise)} is due — ${formatRupees(gap)} is still unallocated.`
-        : `Payments add up to ${formatRupees(allocatedPaise)}, which is ${formatRupees(-gap)} more than the ${formatRupees(balanceDuePaise)} due.`,
+        ? `Payments add up to ${formatMoney(allocatedPaise)} but ${formatMoney(balanceDuePaise)} is due — ${formatMoney(gap)} is still unallocated.`
+        : `Payments add up to ${formatMoney(allocatedPaise)}, which is ${formatMoney(-gap)} more than the ${formatMoney(balanceDuePaise)} due.`,
       400
     );
   }
@@ -106,7 +110,7 @@ export function validateSettlementPayments(
   if (unverified) {
     throw new AppError(
       'PAYMENT_NOT_VERIFIED',
-      `Confirm the ${METHOD_LABELS[unverified.method]} payment of ${formatRupees(unverified.amountPaise)} was received before settling.`,
+      `Confirm the ${METHOD_LABELS[unverified.method]} payment of ${formatMoney(unverified.amountPaise)} was received before settling.`,
       400
     );
   }
@@ -114,9 +118,9 @@ export function validateSettlementPayments(
   return normalized.map(({ verified: _verified, ...p }) => p);
 }
 
-/** e.g. "Cash ₹100.00 + UPI ₹185.00" — used in the bill's status history */
+/** e.g. "Cash £100.00 + Card £185.00" — used in the bill's status history */
 export function describePayments(payments: Pick<PaymentLike, 'method' | 'amountPaise'>[]): string {
-  return payments.map((p) => `${METHOD_LABELS[p.method] || p.method} ${formatRupees(p.amountPaise)}`).join(' + ');
+  return payments.map((p) => `${METHOD_LABELS[p.method] || p.method} ${formatMoney(p.amountPaise)}`).join(' + ');
 }
 
 /**

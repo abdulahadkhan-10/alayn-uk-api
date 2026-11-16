@@ -17,7 +17,7 @@ export type StaffingFlag = 'understaffed' | 'overstaffed' | null;
 export interface StaffingDayInput {
   date: string; // YYYY-MM-DD, outlet-local
   weekday: number; // 0 = Sunday
-  forecast: number | null; // rupees; null when there's no forecast yet
+  forecast: number | null; // pounds; null when there's no forecast yet
   closed: boolean;
   staff: number;
 }

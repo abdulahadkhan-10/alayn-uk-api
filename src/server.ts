@@ -19,7 +19,7 @@ const server = httpServer.listen(env.PORT, async () => {
     await ensureModifierTables();
     // Alayn AI chats are kept for 30 days
     scheduleChatCleanup();
-    // Weekly (Monday) and monthly (1st) report emails, 9 AM India time
+    // Weekly (Monday) and monthly (1st) report emails, 9 AM UK time
     scheduleReportEmails();
   } catch (error: any) {
     logger.error(`Failed to connect to the Database: ${error?.message || error}`);

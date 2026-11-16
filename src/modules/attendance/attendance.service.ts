@@ -4,8 +4,8 @@ import { assertCanManageEmployee } from '../employees/employee.permissions';
 import { findApprovedLeaveOn } from '../employees/leave.helpers';
 import { BUSINESS_DAY_START_HOUR, businessParts, outletDayStart, outletLocalParts } from '../../utils/outletTime';
 
-// All outlets currently operate in India (IST, UTC+5:30). Attendance times are
-// always taken from the server clock and converted to India time — never
+// All outlets currently operate in the UK (Europe/London). Attendance times are
+// always taken from the server clock and converted to UK time — never
 // from the client, which staff could tamper with.
 //
 // Days are business days, 5 AM to 5 AM (see utils/outletTime.ts): a night shift that runs past
@@ -75,7 +75,7 @@ export function shiftWindow(date: Date, startTime: string, endTime: string): { s
   return { start: new Date(start), end: new Date(end) };
 }
 
-/** "5:30 PM" in India time */
+/** "5:30 PM" in UK time */
 function clockLabel(instant: Date): string {
   const { hour, minute } = outletLocalParts(instant);
   const h12 = hour % 12 === 0 ? 12 : hour % 12;

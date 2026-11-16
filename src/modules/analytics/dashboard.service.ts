@@ -32,7 +32,7 @@ const STAFF_ORDER: StaffStatus[] = ['not_in', 'in', 'upcoming', 'left', 'leave',
  *  - Revenue = SETTLED (COMPLETED) orders only, measured BEFORE taxes (order subtotal).
  *    GST / service charge collected is reported separately — it isn't the outlet's income.
  *  - Orders still open (in the kitchen / unpaid) are reported separately as "open bills".
- *  - All dates and hours are India time (see utils/outletTime), not the server's UTC clock.
+ *  - All dates and hours are UK time (see utils/outletTime), not the server's UTC clock.
  */
 const SETTLED = 'COMPLETED' as const;
 
@@ -77,7 +77,7 @@ function parseOperatingDays(json: string | null): Set<number> | null {
 
 function formatCurrency(paise: number) {
   const sign = paise < 0 ? '-' : '';
-  return `${sign}₹${(Math.abs(paise) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+  return `${sign}£${(Math.abs(paise) / 100).toLocaleString('en-GB', { maximumFractionDigits: 0 })}`;
 }
 
 function percentChange(current: number, previous: number) {
@@ -203,8 +203,8 @@ export class DashboardService {
         isPositive: avgOrder.increased,
       },
       orders: {
-        value: current.orderCount.toLocaleString('en-IN'),
-        prev: previous.orderCount.toLocaleString('en-IN'),
+        value: current.orderCount.toLocaleString('en-GB'),
+        prev: previous.orderCount.toLocaleString('en-GB'),
         change: orders.change,
         isPositive: orders.increased,
       },
@@ -232,7 +232,7 @@ export class DashboardService {
       select: { createdAt: true, subtotalPaise: true },
     });
 
-    // 2-hour buckets on clock hours, India time, in business-day order: from the bucket holding 5 AM
+    // 2-hour buckets on clock hours, UK time, in business-day order: from the bucket holding 5 AM
     // (4 AM) round to 2 AM, so late-night sales come after the evening, as on Today's Pace and Reports
     const firstBucket = Math.floor(BUSINESS_DAY_START_HOUR / 2);
     const bucketOf = (hour: number) => (Math.floor(hour / 2) - firstBucket + 12) % 12;
@@ -450,7 +450,7 @@ export class DashboardService {
 
     const combined = combineForecasts(perOutlet);
     const todayDate = calendar[historyDays].date;
-    const rupees = (paise: number | null) => (paise === null ? null : Math.round(paise / 100));
+    const pounds = (paise: number | null) => (paise === null ? null : Math.round(paise / 100));
     const points = combined.points.length
       ? combined.points
       : calendar.slice(historyDays - displayDays).map((d) => ({
@@ -467,10 +467,10 @@ export class DashboardService {
         label: forecastLabel(p.date, p.date === todayDate),
         isToday: p.date === todayDate,
         isFuture: p.date > todayDate,
-        actual: rupees(p.actual),
-        projected: rupees(p.projected),
-        low: rupees(p.low),
-        high: rupees(p.high),
+        actual: pounds(p.actual),
+        projected: pounds(p.projected),
+        low: pounds(p.low),
+        high: pounds(p.high),
         closed: p.closed,
       })),
       accuracy: combined.accuracy && {
@@ -478,8 +478,8 @@ export class DashboardService {
         daysEvaluated: combined.accuracy.daysEvaluated,
       },
       summary: combined.summary && {
-        next7DaysProjected: rupees(combined.summary.next7DaysProjected)!,
-        last7DaysActual: rupees(combined.summary.last7DaysActual)!,
+        next7DaysProjected: pounds(combined.summary.next7DaysProjected)!,
+        last7DaysActual: pounds(combined.summary.last7DaysActual)!,
         vsLast7DaysPct:
           combined.summary.vsLast7DaysPct === null ? null : Math.round(combined.summary.vsLast7DaysPct * 10) / 10,
       },
@@ -525,7 +525,7 @@ export class DashboardService {
     };
   }
 
-  /** Today's sales so far against a typical same weekday, scaled to today's forecast. Amounts in rupees. */
+  /** Today's sales so far against a typical same weekday, scaled to today's forecast. Amounts in pounds. */
   async getTodayPace(outletId?: string, businessId?: string, now: Date = new Date()) {
     const [orders, forecast] = await Promise.all([
       loadPaceOrders(outletId, businessId, now),
@@ -536,20 +536,20 @@ export class DashboardService {
     const forecastToday = forecasting && today && !today.closed && today.projected !== null ? today.projected * 100 : null;
 
     const pace = computeTodayPace(orders, now, forecastToday);
-    const rupees = (paise: number | null) => (paise === null ? null : Math.round(paise / 100));
+    const pounds = (paise: number | null) => (paise === null ? null : Math.round(paise / 100));
     return {
       status: pace.status,
       weekday: pace.weekday,
       typicalDays: pace.typicalDays,
-      soFar: rupees(pace.soFarPaise)!,
-      forecastToday: rupees(pace.forecastTodayPaise),
-      expectedByNow: rupees(pace.expectedByNowPaise),
+      soFar: pounds(pace.soFarPaise)!,
+      forecastToday: pounds(pace.forecastTodayPaise),
+      expectedByNow: pounds(pace.expectedByNowPaise),
       pacePct: pace.pacePct,
       asOf: instant12(now),
       slots: pace.slots.map((s) => ({
         label: s.label,
-        actual: s.isFuture ? null : rupees(s.actualPaise)!,
-        typical: rupees(s.typicalPaise)!,
+        actual: s.isFuture ? null : pounds(s.actualPaise)!,
+        typical: pounds(s.typicalPaise)!,
         isNow: s.isNow,
       })),
     };

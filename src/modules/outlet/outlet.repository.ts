@@ -60,9 +60,9 @@ export class OutletRepository {
             status: OutletSubscriptionStatus.PENDING_PAYMENT,
             planCode: 'MONTHLY_STANDARD',
             planName: 'Standard Monthly Pro',
-            monthlyFeePaise: 199900,
-            taxRatePercent: 18.0,
-            currency: 'INR',
+            monthlyFeePaise: 7900,
+            taxRatePercent: 20.0,
+            currency: 'GBP',
             currentPeriodStart: new Date(),
             currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             autoRenew: true,
@@ -181,7 +181,7 @@ export class OutletRepository {
 
   async updateReceiptDetails(
     outletId: string,
-    data: { phone?: string; gstin?: string; receiptTagline?: string; receiptFooter?: string; upiId?: string },
+    data: { phone?: string; gstin?: string; receiptTagline?: string; receiptFooter?: string },
     businessId?: string
   ) {
     const updateData: Record<string, any> = {};
@@ -189,7 +189,6 @@ export class OutletRepository {
     if (data.gstin !== undefined) updateData.gstin = data.gstin;
     if (data.receiptTagline !== undefined) updateData.receiptTagline = data.receiptTagline;
     if (data.receiptFooter !== undefined) updateData.receiptFooter = data.receiptFooter;
-    if (data.upiId !== undefined) updateData.upiId = data.upiId;
 
     if (outletId === "all" && businessId) {
       return prisma.outlet.updateMany({

@@ -108,10 +108,14 @@ enum OrderStatus {
 }
 
 enum PaymentMethod {
-  UPI
   CARD
   CASH
-  // Dine-in partner platforms
+  // Delivery partner platforms
+  DELIVEROO
+  UBER_EATS
+  JUST_EAT
+  // Legacy values: only on payments recorded before the UK launch. Never written by new code.
+  UPI
   SWIGGY
   ZOMATO
   EAZYDINER
@@ -283,7 +287,7 @@ model OutletSubscription {
   planName           String                   @default("Monthly Pro Plan")
   monthlyFeePaise    Int                      @default(199900)
   taxRatePercent     Decimal                  @default(18.0) @db.Decimal(5, 2)
-  currency           String                   @default("INR")
+  currency           String                   @default("GBP")
   currentPeriodStart DateTime                 @default(now())
   currentPeriodEnd   DateTime
   autoRenew          Boolean                  @default(true)
@@ -307,9 +311,9 @@ model SubscriptionPayment {
   cfPaymentId          String?
   amountPaise          Int
   taxAmountPaise       Int                       @default(0)
-  currency             String                    @default("INR")
+  currency             String                    @default("GBP")
   paymentStatus        SubscriptionPaymentStatus @default(PENDING)
-  paymentMethod        String?                   // e.g. "UPI", "CARD", "NETBANKING"
+  paymentMethod        String?                   // e.g. "CARD", "BANK_TRANSFER"
   paymentSessionId     String?
   cfSignature          String?
   paidAt               DateTime?
@@ -351,7 +355,7 @@ model Outlet {
   gstin            String?
   receiptTagline   String?
   receiptFooter    String?
-  upiId            String?
+  upiId            String? // Legacy (UPI QR payments were removed); no longer read or written
   latitude         Float?
   longitude        Float?
   geofenceRadius   Int?          @default(100)
@@ -380,6 +384,8 @@ model Outlet {
   items            Item[]
   stockBatches     StockBatch[]
   stockLedgerEntries StockLedgerEntry[]
+  recipes          Recipe[]
+  modifierRecipes  ModifierRecipe[]
   suppliers        Supplier[]
   purchaseOrders   PurchaseOrder[]
   stockAlerts      StockAlert[]
@@ -623,6 +629,7 @@ model Item {
   batches            StockBatch[]
   ledgerEntries      StockLedgerEntry[]
   recipes            Recipe[]
+  modifierRecipes    ModifierRecipe[]
   purchaseOrderItems PurchaseOrderItem[]
   alerts             StockAlert[]
 
@@ -653,6 +660,7 @@ model StockLedgerEntry {
   change      Decimal     @db.Decimal(12, 4)
   reason      StockReason
   referenceId String?     // e.g. PO ID, Order ID, WasteLog ID
+  unitCostPaise Int?      // item cost per unit when this movement happened (set for recipe-based sales)
   outletId    String      @db.Uuid
   createdAt   DateTime    @default(now())
 
@@ -660,17 +668,44 @@ model StockLedgerEntry {
   outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
 
   @@index([outletId])
+  @@index([referenceId])
 }
 
+/// One ingredient line of a menu item's recipe at one outlet. Optional: a menu item with no lines deducts nothing when sold.
+/// `outletId` is always the ingredient's own outlet (stock items belong to exactly one outlet).
 model Recipe {
-  menuItemId      String  @db.Uuid
-  itemId          String  @db.Uuid
-  quantityPerUnit Decimal @db.Decimal(12, 4)
+  menuItemId      String   @db.Uuid
+  itemId          String   @db.Uuid
+  outletId        String   @db.Uuid
+  quantityPerUnit Decimal  @db.Decimal(12, 4) // in the ingredient's own unit, per one portion sold
+  wastagePercent  Decimal  @default(0) @db.Decimal(5, 2) // trimming / yield loss on top of quantityPerUnit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
   item     Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  outlet   Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
 
   @@id([menuItemId, itemId])
+  @@index([outletId, menuItemId])
+}
+
+/// Raw materials one choice of an add-on / option uses at one outlet (e.g. "Extra cheese" takes 30 g of cheese), on top of the dish's own recipe.
+model ModifierRecipe {
+  modifierItemId  String   @db.Uuid
+  itemId          String   @db.Uuid
+  outletId        String   @db.Uuid
+  quantityPerUnit Decimal  @db.Decimal(12, 4)
+  wastagePercent  Decimal  @default(0) @db.Decimal(5, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  modifierItem ModifierItem @relation(fields: [modifierItemId], references: [id], onDelete: Cascade)
+  item         Item         @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  outlet       Outlet       @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@id([modifierItemId, itemId])
+  @@index([outletId, modifierItemId])
 }
 
 model Supplier {
@@ -905,6 +940,8 @@ model Order {
   couponCode    String?
   // Client-generated key of the settle request that closed this bill — a retried request returns the bill instead of failing
   settlementKey String?             @unique
+  // Set once the bill's recipe ingredients have been taken out of stock (a bill is deducted at most once)
+  stockDeductedAt DateTime?
   outletId      String      @db.Uuid
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
@@ -938,6 +975,8 @@ model OrderItem {
   cancelledQuantity   Int          @default(0)
   cancelledAt         DateTime?
   cancelledFromStatus OrderStatus? // kitchen stage the item was in when fully removed
+  // Ingredient cost of this line when the bill was settled (recipe cost x quantity); null when the dish has no recipe
+  recipeCostPaise     Int?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
@@ -986,9 +1025,9 @@ model Payment {
   amountPaise Int
   method      PaymentMethod
   status      PaymentStatus @default(PENDING)
-  // UPI UTR / card approval code, when the cashier noted one
+  // Card approval code, when the cashier noted one
   reference    String?
-  // Who confirmed an online (UPI / card) payment was actually received, and when
+  // Who confirmed an online (card / partner) payment was actually received, and when
   verifiedById String?       @db.Uuid
   verifiedAt   DateTime?
   createdAt   DateTime      @default(now())
@@ -1011,8 +1050,8 @@ model WasteLog {
   id                     String          @id @default(uuid()) @db.Uuid
   itemId                 String          @db.Uuid
   quantity               Decimal         @db.Decimal(12, 4)
-  unitCostAtLoggingPaise Int?            // Rate in paise at time of loss (e.g. 11000 = ₹110/kg)
-  costAtLoggingPaise     Int             // Total loss in paise (e.g. 33000 = ₹330)
+  unitCostAtLoggingPaise Int?            // Rate in paise at time of loss (e.g. 11000 = £110/kg)
+  costAtLoggingPaise     Int             // Total loss in paise (e.g. 33000 = £330)
   reason                 WasteReasonType
   notes                  String?         // Incident explanation
   loggedById             String          @db.Uuid // User ID
@@ -1229,7 +1268,7 @@ model ModifierItem {
   id          String        @id @default(uuid()) @db.Uuid
   groupId     String        @db.Uuid
   name        String        // e.g. "Extra Butter", "Extra Cheese", "Half", "Full"
-  pricePaise  Int           @default(0) // 2000 = ₹20.00
+  pricePaise  Int           @default(0) // 2000 = £20.00
   isVeg       Boolean       @default(true)
   dietaryType DietaryType   @default(VEG)
   isActive    Boolean       @default(true)
@@ -1238,6 +1277,7 @@ model ModifierItem {
   updatedAt   DateTime      @updatedAt
 
   group       ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  recipes     ModifierRecipe[]
 
   @@index([groupId, isActive])
 }

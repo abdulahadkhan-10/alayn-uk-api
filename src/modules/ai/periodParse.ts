@@ -2,7 +2,7 @@ import AppError from '../../utils/AppError';
 import { businessDayStart, businessParts } from '../../utils/outletTime';
 import { comparisonPeriod, describeRange, resolvePeriod, DateRange, ResolvedPeriod, DayStrings, PeriodPreset } from '../reports/periods';
 
-// Finds the date periods a question mentions (India time) so the assistant can build a report for each.
+// Finds the date periods a question mentions (UK time) so the assistant can build a report for each.
 // Phrases that are exactly a report preset use that preset; everything else becomes a CUSTOM range
 // with exact day strings, so the Reports page link matches the figures.
 
@@ -188,7 +188,7 @@ export function detectPeriods(text: string, now: Date): DetectedPeriod[] {
 
   // 8. A bare year is the whole year (this year ends today).
   // Not after money signs, digits, dates or slashes, and not before more digits or date parts.
-  scan(/(?<![\d₹/.-])(?<!\brs\s?)(?<!₹\s)(20\d{2})(?!\d)(?![-/]\d)/, (m) => custom(`${m[1]}-01-01`, `${m[1]}-12-31`));
+  scan(/(?<![\d£/.-])(?<!\brs\s?)(?<!£\s)(20\d{2})(?!\d)(?![-/]\d)/, (m) => custom(`${m[1]}-01-01`, `${m[1]}-12-31`));
 
   // 9. "same time last year" shifts the nearest period before it back one year.
   for (const at of sameAsLastYear) {

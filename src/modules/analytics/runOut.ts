@@ -1,10 +1,11 @@
 /*
  * How fast each stock item is used, how much is probably left, and when it runs out.
  *
- * Menu items aren't linked to stock (kitchens don't measure every onion into a dish), so use comes
- * from stock counts:
+ * Use is measured from stock counts, which works for every item:
  *   used between two counts = first count + purchases in between − second count.
- * Until an item has been counted twice there is nothing to predict.
+ * Items in a recipe also have their sales taken out of stock as they happen (SALE entries), so the
+ * balance between counts is kept up to date; those entries and logged waste are never counted as less
+ * than the usual daily use. Until an item has been counted twice there is nothing to predict.
  */
 import { prisma } from '../../config/prisma';
 import { outletScope } from '../../utils/tenantScope';
@@ -35,7 +36,7 @@ export interface ItemOutlook {
 
 /** Stock brought in or moved by hand (counts and sales/waste are what "used" is measured against) */
 const isInflow = (reason: LedgerReason) => reason === 'PURCHASE' || reason === 'ADJUSTMENT';
-/** Stock taken out between counts that Alayn was told about (logged waste, or older recipe-based sales) */
+/** Stock taken out between counts that Alayn was told about (logged waste, or recipe-based sales) */
 const isRecordedUse = (reason: LedgerReason) => reason === 'SALE' || reason === 'WASTE';
 
 /** Running stock after each move, given the item's moves (oldest first) and its stock now. */

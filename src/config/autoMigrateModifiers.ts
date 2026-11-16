@@ -10,6 +10,9 @@ export async function repairAndSyncMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'SWIGGY';`);
     await prisma.$executeRawUnsafe(`ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'ZOMATO';`);
     await prisma.$executeRawUnsafe(`ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'EAZYDINER';`);
+    await prisma.$executeRawUnsafe(`ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'DELIVEROO';`);
+    await prisma.$executeRawUnsafe(`ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'UBER_EATS';`);
+    await prisma.$executeRawUnsafe(`ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'JUST_EAT';`);
     await prisma.$executeRawUnsafe(`ALTER TABLE "Payment" DROP COLUMN IF EXISTS "platformDiscountPaise";`);
 
     // 2. Align _prisma_migrations checksums with migration.sql files on disk

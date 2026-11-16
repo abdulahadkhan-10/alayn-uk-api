@@ -26,7 +26,7 @@ const EXPIRY_WINDOW_DAYS = 3;
 const MAX_NAMES = 3;
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const rupees = (paise: number) => `₹${Math.round(paise / 100).toLocaleString('en-IN')}`;
+const pounds = (paise: number) => `£${Math.round(paise / 100).toLocaleString('en-GB')}`;
 const qty = (n: number) => `${+n.toFixed(2)}`;
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 /** "A, B, C and 2 more" */
@@ -126,7 +126,7 @@ export async function getAttention(outletId?: string, businessId?: string, now: 
       kind: 'stale_bills',
       severity: 'medium',
       title: `${plural(openOrders.length, 'bill')} open for over 2 hours`,
-      detail: `${rupees(total)} not settled · oldest opened ${whenOpened(openOrders[0].createdAt, now)}`,
+      detail: `${pounds(total)} not settled · oldest opened ${whenOpened(openOrders[0].createdAt, now)}`,
       href: '/orders',
     });
   }

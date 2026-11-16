@@ -2,8 +2,9 @@ import { prisma } from '../../config/prisma';
 import { Prisma } from '@prisma/client';
 import { outletScope } from '../../utils/tenantScope';
 import { ONE_DAY_MS, businessDayStart, businessStartOfDay } from '../../utils/outletTime';
+import { PaymentMethodCode } from './splitPayment';
 
-/** Start (5 AM India time) of the business day for a "YYYY-MM-DD" string; other formats use the instant's business day. */
+/** Start (5 AM UK time) of the business day for a "YYYY-MM-DD" string; other formats use the instant's business day. */
 function businessStartOfDateString(dateStr: string): Date {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr);
   if (match) return businessDayStart(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
@@ -204,7 +205,7 @@ export class OrderRepository {
 
     if (filters?.startDate || filters?.endDate) {
       where.createdAt = {};
-      // Business days (5 AM to 5 AM India time), like reports: the end date includes that night after midnight
+      // Business days (5 AM to 5 AM UK time), like reports: the end date includes that night after midnight
       if (filters.startDate) {
         where.createdAt.gte = businessStartOfDateString(filters.startDate);
       }
@@ -281,7 +282,7 @@ export class OrderRepository {
     });
   }
 
-  async createPayment(orderId: string, amountPaise: number, method: 'UPI' | 'CARD' | 'CASH', status: 'PENDING' | 'CONFIRMED' | 'FAILED') {
+  async createPayment(orderId: string, amountPaise: number, method: PaymentMethodCode, status: 'PENDING' | 'CONFIRMED' | 'FAILED') {
     return prisma.payment.create({
       data: {
         orderId,

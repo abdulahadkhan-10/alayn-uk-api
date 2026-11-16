@@ -1,12 +1,12 @@
 import path from 'path';
 import PDFDocument from 'pdfkit';
-import { BreakdownRow, ItemRow, ReportData, Totals, TrendBucket, formatRupees } from '../aggregate';
+import { BreakdownRow, ItemRow, ReportData, Totals, TrendBucket, formatMoney } from '../aggregate';
 import { businessDateString, outletLocalParts } from '../../../utils/outletTime';
 
 // Renders a report as an A4 PDF. Layout is plain top-to-bottom flow: every table row has a fixed
 // height and is only drawn when it fits, so a page break never cuts a row. Money is formatted with
-// formatRupees; dates and times are India time. Text uses Noto Sans because the built-in PDF
-// fonts have no rupee sign.
+// formatMoney; dates and times are UK time. Text uses Noto Sans because the built-in PDF
+// fonts render £ and other symbols inconsistently.
 
 export type ReportWithScope = ReportData & { scope: { outletNames: string[]; businessName: string } };
 
@@ -48,12 +48,12 @@ function generatedLabel(at: Date): string {
   const p = outletLocalParts(at);
   const h12 = p.hour % 12 === 0 ? 12 : p.hour % 12;
   const mm = String(p.minute).padStart(2, '0');
-  return `Generated ${p.day} ${MONTHS[p.month]} ${p.year}, ${h12}:${mm} ${p.hour < 12 ? 'AM' : 'PM'} India time`;
+  return `Generated ${p.day} ${MONTHS[p.month]} ${p.year}, ${h12}:${mm} ${p.hour < 12 ? 'AM' : 'PM'} UK time`;
 }
 
 const fmtPct = (pct: number | null | undefined) =>
   pct == null ? '—' : `${pct > 0 ? '+' : ''}${(Math.round(pct * 10) / 10).toFixed(1)}%`;
-const fmtCount = (n: number) => n.toLocaleString('en-IN');
+const fmtCount = (n: number) => n.toLocaleString('en-GB');
 const fmtShare = (pct: number) => `${(Math.round(pct * 10) / 10).toFixed(1)}%`;
 
 /** Green when the change is good, red when bad, grey when none or unknown. */
@@ -151,7 +151,7 @@ function breakdownTable(w: Writer, title: string, first: string, rows: Breakdown
   if (rows.length === 0) return;
   w.heading(title, undefined, keepRows(rows.length));
   w.table(nameColumns(first, hasPrev), rows.map((r) => {
-    const cells: Cell[] = [r.label, formatRupees(r.current.netSalesPaise), fmtCount(r.current.orders), fmtShare(r.sharePct)];
+    const cells: Cell[] = [r.label, formatMoney(r.current.netSalesPaise), fmtCount(r.current.orders), fmtShare(r.sharePct)];
     if (hasPrev) cells.push({ text: fmtPct(r.changePct), color: changeColor(r.changePct, false) });
     return cells;
   }));
@@ -168,7 +168,7 @@ function itemsTable(w: Writer, title: string, rows: ItemRow[], hasPrev: boolean)
   const used = 140 + tail.reduce((s, c) => s + c.width, 0);
   const columns: Column[] = [{ label: 'Item', width: WIDTH - used }, { label: 'Category', width: 140 }, ...tail];
   w.table(columns, rows.map((r) => {
-    const cells: Cell[] = [r.name, r.category, fmtCount(r.qty), formatRupees(r.salesPaise)];
+    const cells: Cell[] = [r.name, r.category, fmtCount(r.qty), formatMoney(r.salesPaise)];
     if (hasPrev) cells.push({ text: fmtPct(r.changePct), color: changeColor(r.changePct, false) });
     return cells;
   }));
@@ -192,7 +192,7 @@ function headlineTable(w: Writer, r: ReportData) {
   const prev = r.totals.previous;
   const hasPrev = prev != null && r.comparison != null;
   w.heading('Headline figures');
-  const show = (t: Totals, key: keyof Totals, money: boolean) => (money ? formatRupees(t[key]) : fmtCount(t[key]));
+  const show = (t: Totals, key: keyof Totals, money: boolean) => (money ? formatMoney(t[key]) : fmtCount(t[key]));
   const columns: Column[] = hasPrev
     ? [
         { label: 'Metric', width: WIDTH - 3 * 105 },
@@ -264,7 +264,7 @@ function trendSection(w: Writer, r: ReportData) {
   const top = w.y + 12;
   const base = top + chartH;
   const max = Math.max(1, ...buckets.map((b) => Math.max(b.cur, b.prev ?? 0)));
-  doc.font('Regular').fontSize(7).fillColor(MUTED).text(formatRupees(max), MARGIN, w.y, { lineBreak: false });
+  doc.font('Regular').fontSize(7).fillColor(MUTED).text(formatMoney(max), MARGIN, w.y, { lineBreak: false });
   doc.moveTo(MARGIN, base).lineTo(MARGIN + WIDTH, base).lineWidth(0.5).strokeColor(MUTED).stroke();
   const pairW = WIDTH / buckets.length;
   const bars = hasPrev ? 2 : 1;
@@ -287,8 +287,8 @@ function trendSection(w: Writer, r: ReportData) {
     ? [{ label: 'Period', width: WIDTH - 3 * 100 }, { label: 'Sales', width: 100, align: 'right' }, { label: 'Orders', width: 100, align: 'right' }, { label: 'Comparison sales', width: 100, align: 'right' }]
     : [{ label: 'Period', width: WIDTH - 200 }, { label: 'Sales', width: 100, align: 'right' }, { label: 'Orders', width: 100, align: 'right' }];
   w.table(columns, table.map((b) => {
-    const row: Cell[] = [b.label, formatRupees(b.cur), fmtCount(b.orders)];
-    if (hasPrev) row.push(formatRupees(b.prev ?? 0));
+    const row: Cell[] = [b.label, formatMoney(b.cur), fmtCount(b.orders)];
+    if (hasPrev) row.push(formatMoney(b.prev ?? 0));
     return row;
   }));
 }
@@ -353,7 +353,7 @@ export function renderReportPdf(report: ReportWithScope, generatedAt: Date, opts
         w.heading('Waste by reason', undefined, keepRows(report.waste.length));
         w.table(
           [{ label: 'Reason', width: WIDTH - 200 }, { label: 'Cost', width: 100, align: 'right' }, { label: 'Entries', width: 100, align: 'right' }],
-          report.waste.map((r) => [r.label, formatRupees(r.current.netSalesPaise), fmtCount(r.current.orders)]),
+          report.waste.map((r) => [r.label, formatMoney(r.current.netSalesPaise), fmtCount(r.current.orders)]),
         );
       }
       if (!noSales && outlets.length > 1) breakdownTable(w, 'Outlets', 'Outlet', report.outlets, hasPrev);

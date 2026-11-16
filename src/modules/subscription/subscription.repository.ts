@@ -62,7 +62,7 @@ export class SubscriptionRepository {
         status: data.status,
         planCode: data.planCode || 'MONTHLY_STANDARD',
         planName: data.planName || 'Monthly Pro Plan',
-        monthlyFeePaise: data.monthlyFeePaise || 199900,
+        monthlyFeePaise: data.monthlyFeePaise || 7900,
         currentPeriodStart: periodStart,
         currentPeriodEnd: periodEnd,
       },
@@ -100,7 +100,7 @@ export class SubscriptionRepository {
         cfOrderId: data.cfOrderId,
         amountPaise: data.amountPaise,
         taxAmountPaise: data.taxAmountPaise || 0,
-        currency: data.currency || 'INR',
+        currency: data.currency || 'GBP',
         paymentSessionId: data.paymentSessionId,
         paymentStatus: data.paymentStatus || SubscriptionPaymentStatus.PENDING,
         couponId: data.couponId,
@@ -155,7 +155,7 @@ export class SubscriptionRepository {
         data: {
           paymentStatus: SubscriptionPaymentStatus.SUCCESS,
           cfPaymentId: paymentDetails.cfPaymentId,
-          paymentMethod: paymentDetails.paymentMethod || 'UPI',
+          paymentMethod: paymentDetails.paymentMethod || 'CARD',
           cfSignature: paymentDetails.cfSignature,
           rawWebhookPayload: paymentDetails.rawPayload,
           paidAt: paymentDetails.paidAt || new Date(),
@@ -168,8 +168,8 @@ export class SubscriptionRepository {
         where: { outletId: payment.outletId }
       });
 
-      // Standard monthly fee is ₹1,999 + 18% GST = ₹2,358.82 = 235882 paise
-      const singleMonthPaise = 235882;
+      // Standard monthly fee is £79 + 20% VAT = £94.80 = 9480 pence (fallback only; billingMonths is normally stored)
+      const singleMonthPaise = 9480;
       // Security: Read billing duration strictly from our internal payment record, NEVER from untrusted raw webhook payloads
       const dbBillingMonths = (payment as any).billingMonths;
       const calculatedMonths = (typeof dbBillingMonths === 'number' && dbBillingMonths > 0)

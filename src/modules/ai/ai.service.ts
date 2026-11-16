@@ -102,7 +102,7 @@ If a requested period has no sales, say so plainly; never fill it in from other 
 Change % is the current period compared with the earlier one; positive means the current period is higher.
 If there is no [REQUESTED PERIODS] section, answer from the other data and do not add a report link.
 `;
-const rupees = (n: number) => `₹${n.toLocaleString('en-IN')}`;
+const pounds = (n: number) => `£${n.toLocaleString('en-GB')}`;
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /** "Sat 17 Oct" for a forecast point — weekday names stop the model guessing which days are the weekend. */
@@ -244,14 +244,14 @@ export class AiService {
         .map((p) =>
           p.closed
             ? `${dayLabel(p)}: closed`
-            : `${dayLabel(p)}: ${rupees(p.projected ?? 0)}${p.low !== null && p.high !== null ? ` (likely ${rupees(p.low)}–${rupees(p.high)})` : ''}`,
+            : `${dayLabel(p)}: ${pounds(p.projected ?? 0)}${p.low !== null && p.high !== null ? ` (likely ${pounds(p.low)}–${pounds(p.high)})` : ''}`,
         )
         .join(', ');
       const today = f.points.find((p) => p.isToday);
       const pct = f.summary.vsLast7DaysPct;
       const change = pct === null
         ? 'no full week yet to compare with'
-        : `${pct >= 0 ? '+' : ''}${pct}% vs last 7 days (${rupees(f.summary.last7DaysActual)})`;
+        : `${pct >= 0 ? '+' : ''}${pct}% vs last 7 days (${pounds(f.summary.last7DaysActual)})`;
       const accuracy = f.accuracy
         ? `past forecasts were off by ${f.accuracy.mapePct}% on average (checked on ${f.accuracy.daysEvaluated} days)`
         : 'accuracy not measured yet';
@@ -260,7 +260,7 @@ export class AiService {
         : '';
       return [
         ...(today ? [`- Today is ${dayLabel(today)} (Sat and Sun are the weekend)`] : []),
-        `- Sales Forecast, next 7 days (before tax): ${rupees(f.summary.next7DaysProjected)}, likely between ${rupees(low)} and ${rupees(high)}, ${change}; ${accuracy}${coverage}.${early}`,
+        `- Sales Forecast, next 7 days (before tax): ${pounds(f.summary.next7DaysProjected)}, likely between ${pounds(low)} and ${pounds(high)}, ${change}; ${accuracy}${coverage}.${early}`,
         `- Daily Forecast: ${daily}`,
       ].join('\n');
     } catch (err) {
@@ -280,7 +280,7 @@ export class AiService {
     const orderOutletFilter = outletScope(outletId, businessId);
     const directOutletFilter = outletScope(outletId, businessId);
 
-    // India-time day / month boundaries (the server runs in UTC)
+    // UK-time day / month boundaries (the server runs in UTC)
     const now = new Date();
     const { year: localYear, month: localMonth } = businessParts(now);
     const startOfCurrentMonth = businessDayStart(localYear, localMonth, 1);
@@ -450,15 +450,15 @@ export class AiService {
     return `
 [OUTLET DATA]
 - Outlet Scope: ${outletName}
-- MTD Net Revenue: ₹${mtdRevenue.toLocaleString('en-IN')} across ${mtdOrders} orders
-- Today's Revenue: ₹${todayRevenue.toLocaleString('en-IN')} (${todayOrders} settled orders today)
-- Average Ticket Value (AOV): ₹${avgOrderValue}
+- MTD Net Revenue: £${mtdRevenue.toLocaleString('en-GB')} across ${mtdOrders} orders
+- Today's Revenue: £${todayRevenue.toLocaleString('en-GB')} (${todayOrders} settled orders today)
+- Average Ticket Value (AOV): £${avgOrderValue}
 - Total Staff Count: ${staffCount} (${activeStaffCount} active employees)
 - Dining Floor: ${occupiedTables} occupied out of ${totalTables} total tables
 - Top Selling Menu Items: ${topItemStr}
 - Low Stock Alerts: ${lowStockStr}
 - Running Out Soon (above reorder level, but lasting ${RUN_OUT_WARN_DAYS} days or less): ${runningOutStr}
-- Recorded Waste (MTD): ₹${wasteCost.toLocaleString('en-IN')} across ${wasteCount} waste events
+- Recorded Waste (MTD): £${wasteCost.toLocaleString('en-GB')} across ${wasteCount} waste events
 `.trim();
   }
 
@@ -526,7 +526,7 @@ HOW TO ANSWER (owners read this on their phone between orders):
 - Use a table only to compare 3 or more rows; otherwise use plain sentences or a short bullet list.
 - Never mention "telemetry", "snapshot", "the data provided" or where the numbers come from, unless the user asks.
 - Never invent targets, goals, labels or explanations the data does not support. Report a number as what it is (a forecast is a forecast, not a target).
-- Write times as 1 PM / 10:30 AM, amounts as ₹37,278.
+- Write times as 1 PM / 10:30 AM, amounts as £37,278.
 - Simple, plain English. No emojis. No buzzwords. No abbreviations: say "this month so far" not "MTD", "average order value" not "AOV".
 
 
@@ -666,21 +666,21 @@ ${modelContext}
 
     // Extract metrics from dbContext. Anything missing is shown as unavailable, never as an example value.
     const NA = 'not available';
-    const revMatch = dbContext.match(/MTD Net Revenue: ₹([0-9,.]+)/);
-    const mtdRev = revMatch ? `₹${revMatch[1]}` : NA;
+    const revMatch = dbContext.match(/MTD Net Revenue: £([0-9,.]+)/);
+    const mtdRev = revMatch ? `£${revMatch[1]}` : NA;
 
-    const todayMatch = dbContext.match(/Today's Revenue: ₹([0-9,.]+)/);
-    const todayRev = todayMatch ? `₹${todayMatch[1]}` : NA;
+    const todayMatch = dbContext.match(/Today's Revenue: £([0-9,.]+)/);
+    const todayRev = todayMatch ? `£${todayMatch[1]}` : NA;
 
-    const aovMatch = dbContext.match(/Average Ticket Value \(AOV\): ₹([0-9,.]+)/);
-    const aov = aovMatch ? `₹${aovMatch[1]}` : NA;
+    const aovMatch = dbContext.match(/Average Ticket Value \(AOV\): £([0-9,.]+)/);
+    const aov = aovMatch ? `£${aovMatch[1]}` : NA;
 
     const staffMatch = dbContext.match(/Total Staff Count: (\d+) \((\d+) active/);
     const totalStaff = staffMatch ? staffMatch[1] : NA;
     const activeStaff = staffMatch ? staffMatch[2] : NA;
 
-    const wasteMatch = dbContext.match(/Recorded Waste \(MTD\): ₹([0-9,.]+)/);
-    const wasteCost = wasteMatch ? `₹${wasteMatch[1]}` : NA;
+    const wasteMatch = dbContext.match(/Recorded Waste \(MTD\): £([0-9,.]+)/);
+    const wasteCost = wasteMatch ? `£${wasteMatch[1]}` : NA;
 
     const topItemsMatch = dbContext.match(/Top Selling Menu Items: ([^\n]+)/);
     const topItems = topItemsMatch ? topItemsMatch[1] : NA;

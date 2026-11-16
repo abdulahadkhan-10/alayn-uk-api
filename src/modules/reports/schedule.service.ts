@@ -8,13 +8,13 @@ import { outletLocalParts, businessParts, businessDayStart, businessDateString }
 import { businessOutletIds } from './access';
 import { buildReport } from './report.service';
 import { renderReportPdf, reportFileName } from './export/pdf';
-import { formatRupees } from './aggregate';
+import { formatMoney } from './aggregate';
 import { resolvePeriod, PeriodPreset } from './periods';
 import type { ReportRequest } from './query';
 
 export type Frequency = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
-const SEND_HOUR = 9; // India time
+const SEND_HOUR = 9; // UK time
 const FREQUENCIES: Frequency[] = ['DAILY', 'WEEKLY', 'MONTHLY'];
 const PRESET: Record<Frequency, PeriodPreset> = { DAILY: 'YESTERDAY', WEEKLY: 'LAST_WEEK', MONTHLY: 'LAST_MONTH' };
 const WORD: Record<Frequency, string> = { DAILY: 'daily', WEEKLY: 'weekly', MONTHLY: 'monthly' };
@@ -48,7 +48,7 @@ export function parseScheduleInput(body: unknown): ScheduleInput {
 /** The report a schedule sends at `now`, and when that report's period began. */
 const periodFor = (frequency: Frequency, now: Date) => resolvePeriod(PRESET[frequency], now);
 
-/** Enabled schedules whose report for this week or month hasn't been sent yet, from 9 AM India time on the day. */
+/** Enabled schedules whose report for this week or month hasn't been sent yet, from 9 AM UK time on the day. */
 export async function dueSchedules(now: Date): Promise<ReportSchedule[]> {
   const local = outletLocalParts(now);
   if (local.hour < SEND_HOUR) return [];
@@ -65,9 +65,9 @@ type BuiltReport = Awaited<ReturnType<typeof buildReport>>;
 function emailBody(report: BuiltReport, frequency: Frequency) {
   const t = report.totals.current;
   const rows: [string, string][] = [
-    ['Sales (before tax)', formatRupees(t.netSalesPaise)],
+    ['Sales (before tax)', formatMoney(t.netSalesPaise)],
     ['Orders', String(t.orders)],
-    ['Average order value', formatRupees(t.avgOrderPaise)],
+    ['Average order value', formatMoney(t.avgOrderPaise)],
   ];
   const where = report.scope.outletNames.join(', ');
   const title = `Your ${WORD[frequency]} report: ${report.period.label}`;

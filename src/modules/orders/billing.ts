@@ -1,7 +1,7 @@
 /**
  * Bill calculation — the single source of truth for every amount on a restaurant bill.
  *
- * Professional model (standard for Indian restaurant POS): each round sent to the kitchen is a KOT
+ * Professional model (standard for restaurant POS): each round sent to the kitchen is a KOT
  * with no money on it; the bill is always calculated from ALL items on the order with this function,
  * recalculated whenever the bill changes, and frozen at settlement. Never add amounts round by round.
  *
@@ -10,7 +10,7 @@
  *   service charge = net × rate         (dine-in only; voluntary — the customer may ask to remove it)
  *   taxable value  = net + service charge   (GST applies on service charge: part of value of supply, CGST Act s.15)
  *   CGST / SGST    = taxable × rate         (none for Composition / Unregistered businesses)
- *   total          = rounded to the nearest rupee, with a round-off line
+ *   total          = the exact gross amount (bills are not rounded)
  *
  * The frontend POS preview mirrors this in alayn-frontend/src/lib/billing.ts — keep them in sync.
  */
@@ -74,7 +74,7 @@ export function calculateBill(items: BillLine[], rates: BillRates, options: Bill
   const sgstPaise = Math.round((taxableValuePaise * sgstRate) / 100);
 
   const grossPaise = taxableValuePaise + cgstPaise + sgstPaise;
-  const totalPaise = Math.round(grossPaise / 100) * 100;
+  const totalPaise = grossPaise;
 
   return {
     subtotalPaise,

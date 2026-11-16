@@ -1,7 +1,7 @@
 import AppError from '../../utils/AppError';
 import { ONE_DAY_MS, businessDayStart, businessParts, businessStartOfDay } from '../../utils/outletTime';
 
-// Every date range used by reports and comparisons is decided here, in India time, using the 5 AM business day
+// Every date range used by reports and comparisons is decided here, in UK time, using the 5 AM business day
 // (see outletTime.ts): "Friday" runs from Friday 5 AM to Saturday 4:59:59 AM.
 // All month/week arithmetic is done on local calendar parts; Date.UTC normalises overflow
 // (month 12 -> January next year, day 0 -> last day of previous month).

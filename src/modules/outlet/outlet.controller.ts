@@ -148,11 +148,11 @@ export class OutletController {
     try {
       const outletId = (req as any).outletId;
       const businessId = req.user?.businessId;
-      const { phone, gstin, receiptTagline, receiptFooter, upiId } = req.body;
+      const { phone, gstin, receiptTagline, receiptFooter } = req.body;
       if (!outletId) {
         throw new AppError('VALIDATION_ERROR', 'Outlet ID context is required', 400);
       }
-      const result = await this.service.updateReceiptDetails(outletId, { phone, gstin, receiptTagline, receiptFooter, upiId }, businessId || undefined);
+      const result = await this.service.updateReceiptDetails(outletId, { phone, gstin, receiptTagline, receiptFooter }, businessId || undefined);
       return sendSuccess(res, result);
     } catch (error) {
       next(error);
