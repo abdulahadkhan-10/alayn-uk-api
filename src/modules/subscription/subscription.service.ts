@@ -4,6 +4,30 @@ import { AppError } from '../../utils/AppError';
 import { OutletSubscriptionStatus, SubscriptionPaymentStatus, PrismaClient, DiscountType } from '@prisma/client';
 import { assertCouponRedeemable, isFreeCoupon } from './couponRedemption';
 
+/**
+ * Cashfree collects in Indian rupees, while Alayn UK prices are in pounds. The pound amount is
+ * converted with a rate set on the server (CASHFREE_GBP_TO_INR_RATE, rupees per pound). There is
+ * no built-in default: charging with a stale or guessed rate is worse than refusing the checkout.
+ */
+export const CHARGE_CURRENCY = 'INR';
+
+export function gbpToInrRate(): number {
+  const rate = Number(process.env.CASHFREE_GBP_TO_INR_RATE);
+  if (!Number.isFinite(rate) || rate <= 0) {
+    throw new AppError(
+      'PAYMENT_CONFIG_ERROR',
+      'Card payments are not set up yet. Please contact Alayn support.',
+      503
+    );
+  }
+  return rate;
+}
+
+/** Pounds → rupees, rounded to the paisa Cashfree accepts */
+export function poundsToChargeAmount(pounds: number, rate: number): number {
+  return Math.round(pounds * rate * 100) / 100;
+}
+
 export interface PlanConfig {
   planCode: string;
   name: string;
@@ -105,6 +129,8 @@ export class SubscriptionService {
     const totalPence = Math.round(totalPounds * 100);
     const vatPence = Math.round(vatPounds * 100);
     const discountPence = Math.round(discountPounds * 100);
+    // Checked before anything is saved, so a missing rate leaves no half-made payment behind
+    const chargeAmount = totalPence > 0 ? poundsToChargeAmount(totalPounds, gbpToInrRate()) : 0;
 
     // Generate unique Cashfree order ID
     const shortOutletId = outletId.replace(/-/g, '').substring(0, 8);
@@ -194,8 +220,8 @@ export class SubscriptionService {
     // Create Cashfree Order
     const cfOrder = await this.cashfree.createOrder({
       orderId: cfOrderId,
-      orderAmount: totalPounds,
-      orderCurrency: 'GBP',
+      orderAmount: chargeAmount,
+      orderCurrency: CHARGE_CURRENCY,
       customerDetails: {
         customerId: userId,
         customerName: customerInfo?.name || 'Restaurant Business Owner',
@@ -230,6 +256,8 @@ export class SubscriptionService {
       couponCode: appliedCoupon?.code,
       discountAmountPence: discountPence,
       billingMonths: validatedMonths,
+      chargedAmount: chargeAmount,
+      chargedCurrency: CHARGE_CURRENCY,
     });
 
     return {
@@ -241,6 +269,9 @@ export class SubscriptionService {
       discountPounds,
       vatAmountPounds: vatPounds,
       currency: 'GBP',
+      // What the Cashfree checkout will show and collect
+      chargeAmount,
+      chargeCurrency: CHARGE_CURRENCY,
       months: validatedMonths,
       coupon: appliedCoupon
         ? {
@@ -278,11 +309,18 @@ export class SubscriptionService {
     const paymentsList = await this.cashfree.getOrderPayments(cfOrderId);
     const successfulPayment = paymentsList.find((p) => p.payment_status === 'SUCCESS') || paymentsList[0];
 
-    // Anti-fraud: Verify paid amount matches what was charged
-    const expectedPounds = payment.amountPence / 100;
-    const paidPounds = Number(cfOrder.order_amount);
-    if (paidPounds < expectedPounds) {
-      console.error(`[SubscriptionService] Paid amount mismatch for order ${cfOrderId}: paid £${paidPounds}, expected £${expectedPounds}`);
+    // Anti-fraud: the order Cashfree holds must be in the currency and for the amount we asked for.
+    // Older payments (before rupee checkout) recorded no charged amount and were made in pounds.
+    const paidAmount = Number(cfOrder.order_amount);
+    const expectedCurrency = (payment as any).chargedCurrency || payment.currency || 'GBP';
+    const expectedAmount =
+      (payment as any).chargedAmount !== null && (payment as any).chargedAmount !== undefined
+        ? Number((payment as any).chargedAmount)
+        : payment.amountPence / 100;
+    if ((cfOrder.order_currency || expectedCurrency) !== expectedCurrency || paidAmount < expectedAmount) {
+      console.error(
+        `[SubscriptionService] Paid amount mismatch for order ${cfOrderId}: paid ${paidAmount} ${cfOrder.order_currency}, expected ${expectedAmount} ${expectedCurrency}`
+      );
       throw new AppError('PAYMENT_AMOUNT_MISMATCH', 'Paid amount is less than the required subscription fee.', 400);
     }
 

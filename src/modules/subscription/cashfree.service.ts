@@ -53,6 +53,20 @@ export class CashfreeService {
       : 'https://sandbox.cashfree.com/pg';
   }
 
+  /**
+   * Without real keys the service fakes Cashfree (every order reads as PAID) so the flow can be
+   * tried locally. That must never happen on a live server, or anyone could activate a branch
+   * without paying, so production refuses instead.
+   */
+  private useMock(): boolean {
+    const missingKeys = !this.appId || !this.secretKey || this.appId.startsWith('TEST_APP_ID');
+    if (!missingKeys) return false;
+    if (process.env.NODE_ENV === 'production') {
+      throw new AppError('PAYMENT_CONFIG_ERROR', 'Card payments are not set up yet. Please contact Alayn support.', 503);
+    }
+    return true;
+  }
+
   private getHeaders(): Record<string, string> {
     return {
       'Content-Type': 'application/json',
@@ -67,7 +81,7 @@ export class CashfreeService {
    * Create a Cashfree Payment Order
    */
   async createOrder(params: CreateOrderParams): Promise<CashfreeOrderResponse> {
-    if (!this.appId || !this.secretKey || this.appId.startsWith('TEST_APP_ID')) {
+    if (this.useMock()) {
       console.warn('[CashfreeService] Using mock payment session (Sandbox credentials pending).');
       return {
         cf_order_id: `cf_mock_${Date.now()}`,
@@ -130,13 +144,13 @@ export class CashfreeService {
    * Fetch Order details by order_id
    */
   async getOrder(orderId: string): Promise<CashfreeOrderResponse> {
-    if (!this.appId || !this.secretKey || this.appId.startsWith('TEST_APP_ID')) {
+    if (this.useMock()) {
       return {
         cf_order_id: `cf_mock_${orderId}`,
         order_id: orderId,
         entity: 'order',
-        order_currency: 'GBP',
-        order_amount: 1999.00,
+        order_currency: 'INR',
+        order_amount: 999999.00, // mock: always covers the expected amount
         order_status: 'PAID',
         payment_session_id: `session_mock_${orderId}`,
         customer_details: { customer_id: 'mock_cust' },
@@ -164,12 +178,12 @@ export class CashfreeService {
    * Fetch payments for a specific order
    */
   async getOrderPayments(orderId: string): Promise<any[]> {
-    if (!this.appId || !this.secretKey || this.appId.startsWith('TEST_APP_ID')) {
+    if (this.useMock()) {
       return [{
         payment_status: 'SUCCESS',
         payment_method: 'CARD',
-        payment_currency: 'GBP',
-        payment_amount: 1999.00,
+        payment_currency: 'INR',
+        payment_amount: 999999.00,
         cf_payment_id: `cf_pay_${Date.now()}`
       }];
     }

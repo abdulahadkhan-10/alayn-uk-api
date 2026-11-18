@@ -314,6 +314,10 @@ model SubscriptionPayment {
   couponCode           String?
   discountAmountPence  Int                       @default(0)
   billingMonths        Int                       @default(1)
+  // What Cashfree was asked to collect. Prices are in pounds but Cashfree charges in rupees,
+  // so the converted amount is kept to check the payment against.
+  chargedAmount        Decimal?                  @db.Decimal(12, 2)
+  chargedCurrency      String?
 
   coupon               Coupon?                   @relation(fields: [couponId], references: [id], onDelete: SetNull)
   outletSubscription   OutletSubscription?       @relation(fields: [outletSubscriptionId], references: [id], onDelete: SetNull)

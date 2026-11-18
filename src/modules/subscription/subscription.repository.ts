@@ -91,6 +91,8 @@ export class SubscriptionRepository {
     couponCode?: string;
     discountAmountPence?: number;
     billingMonths?: number;
+    chargedAmount?: number;
+    chargedCurrency?: string;
   }) {
     return prisma.subscriptionPayment.create({
       data: {
@@ -107,6 +109,8 @@ export class SubscriptionRepository {
         couponCode: data.couponCode,
         discountAmountPence: data.discountAmountPence || 0,
         billingMonths: data.billingMonths || 1,
+        chargedAmount: data.chargedAmount,
+        chargedCurrency: data.chargedCurrency,
       } as any
     });
   }
