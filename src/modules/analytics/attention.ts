@@ -26,7 +26,7 @@ const EXPIRY_WINDOW_DAYS = 3;
 const MAX_NAMES = 3;
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const pounds = (paise: number) => `£${Math.round(paise / 100).toLocaleString('en-GB')}`;
+const pounds = (pence: number) => `£${Math.round(pence / 100).toLocaleString('en-GB')}`;
 const qty = (n: number) => `${+n.toFixed(2)}`;
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 /** "A, B, C and 2 more" */
@@ -80,7 +80,7 @@ export async function getAttention(outletId?: string, businessId?: string, now: 
     }),
     prisma.order.findMany({
       where: { ...scope, status: { notIn: ['COMPLETED', 'CANCELLED'] }, deletedAt: null, createdAt: { lte: new Date(now.getTime() - STALE_BILL_MS) } },
-      select: { totalPaise: true, createdAt: true },
+      select: { totalPence: true, createdAt: true },
       orderBy: { createdAt: 'asc' },
     }),
     getStaffToday(outletId, businessId, now),
@@ -121,7 +121,7 @@ export async function getAttention(outletId?: string, businessId?: string, now: 
   }
 
   if (openOrders.length) {
-    const total = openOrders.reduce((s, o) => s + o.totalPaise, 0);
+    const total = openOrders.reduce((s, o) => s + o.totalPence, 0);
     result.push({
       kind: 'stale_bills',
       severity: 'medium',

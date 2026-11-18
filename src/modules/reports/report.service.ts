@@ -27,14 +27,14 @@ async function loadPeriod(range: DateRange, outletIds: string[], sources?: Chann
       },
       select: {
         id: true, outletId: true, createdAt: true, source: true, status: true,
-        subtotalPaise: true, discountPaise: true, vatPaise: true, serviceTaxPaise: true,
-        items: { select: { menuItemId: true, quantity: true, subtotalPaise: true } },
-        payments: { where: { status: 'CONFIRMED' }, select: { method: true, amountPaise: true } },
+        subtotalPence: true, discountPence: true, vatPence: true, serviceTaxPence: true,
+        items: { select: { menuItemId: true, quantity: true, subtotalPence: true } },
+        payments: { where: { status: 'CONFIRMED' }, select: { method: true, amountPence: true } },
       },
     }),
     prisma.wasteLog.findMany({
       where: { outletId: { in: outletIds }, createdAt },
-      select: { outletId: true, createdAt: true, reason: true, costAtLoggingPaise: true },
+      select: { outletId: true, createdAt: true, reason: true, costAtLoggingPence: true },
     }),
   ]);
   return { range, orders: orders as unknown as RawOrder[], waste: waste as unknown as RawWaste[] };

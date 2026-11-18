@@ -25,15 +25,15 @@ const OUTLET = 'outlet-bandra';
 const PO_ID = '9b1e7c2a-4f3d-4a8e-9c1b-2d3e4f5a6b7c';
 const dec = (n: number) => new Prisma.Decimal(n);
 
-// "Test Milk": ordered 10 L at ₹60 (6000 paise); item master price currently ₹50
+// "Test Milk": ordered 10 L at ₹60 (6000 pence); item master price currently ₹50
 const poItem = (overrides: any = {}) => ({
   id: 'poi-milk',
   itemId: 'item-milk',
   orderedQuantity: dec(10),
   receivedQuantity: dec(0),
   damagedQuantity: dec(0),
-  unitCostPaise: 6000,
-  item: { name: 'Test Milk', unitCostPaise: 5000 },
+  unitCostPence: 6000,
+  item: { name: 'Test Milk', unitCostPence: 5000 },
   ...overrides,
 });
 
@@ -77,7 +77,7 @@ describe('Purchase orders', () => {
       return new PurchaseOrderService().createPO(
         OUTLET,
         'sup-ali',
-        [{ itemId: 'item-buff', orderedQuantity: 3, unitCostPaise: 35000 }],
+        [{ itemId: 'item-buff', orderedQuantity: 3, unitCostPence: 35000 }],
         'biz-1',
         clientRequestId
       );
@@ -193,7 +193,7 @@ describe('Purchase orders', () => {
 
       await receive(10);
 
-      expect(prisma.item.update).toHaveBeenCalledWith({ where: { id: 'item-milk' }, data: { unitCostPaise: 5500 } });
+      expect(prisma.item.update).toHaveBeenCalledWith({ where: { id: 'item-milk' }, data: { unitCostPence: 5500 } });
     });
 
     it('uses the purchase price directly when there is no stock on hand', async () => {
@@ -202,7 +202,7 @@ describe('Purchase orders', () => {
 
       await receive(10);
 
-      expect(prisma.item.update).toHaveBeenCalledWith({ where: { id: 'item-milk' }, data: { unitCostPaise: 6000 } });
+      expect(prisma.item.update).toHaveBeenCalledWith({ where: { id: 'item-milk' }, data: { unitCostPence: 6000 } });
     });
   });
 

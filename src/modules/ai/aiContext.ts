@@ -49,7 +49,7 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_ENUM = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'] as const;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-const pounds = (paise: number) => `£${Math.round(paise / 100).toLocaleString('en-GB')}`;
+const pounds = (pence: number) => `£${Math.round(pence / 100).toLocaleString('en-GB')}`;
 const pct = (current: number, previous: number) =>
   previous > 0 ? `${current >= previous ? '+' : ''}${(((current - previous) / previous) * 100).toFixed(1)}%` : 'n/a';
 const dayKey = (instant: Date) => {
@@ -64,7 +64,7 @@ const hourName = (h: number) => `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? 'AM' :
 
 export interface SettledOrder {
   createdAt: Date;
-  subtotalPaise: number;
+  subtotalPence: number;
   outletId: string;
 }
 
@@ -77,7 +77,7 @@ export function summariseSales(orders: SettledOrder[], now: Date): string[] {
   const todayStart = businessStartOfDay(now);
   const { year, month, day } = businessParts(now);
   const byDay = new Map<string, number>();
-  for (const o of orders) byDay.set(dayKey(o.createdAt), (byDay.get(dayKey(o.createdAt)) ?? 0) + o.subtotalPaise);
+  for (const o of orders) byDay.set(dayKey(o.createdAt), (byDay.get(dayKey(o.createdAt)) ?? 0) + o.subtotalPence);
   const dayTotal = (start: Date) => byDay.get(dayKey(start)) ?? 0;
   const daysAgo = (n: number) => new Date(todayStart.getTime() - n * ONE_DAY_MS);
 
@@ -105,10 +105,10 @@ export function summariseSales(orders: SettledOrder[], now: Date): string[] {
   for (const o of orders) {
     const t = o.createdAt.getTime();
     if (t >= lastMonthStart.getTime() && t < thisMonthStart.getTime()) {
-      lastMonthTotal += o.subtotalPaise;
-      if (businessParts(o.createdAt).day < day) lastMonthSameDays += o.subtotalPaise;
+      lastMonthTotal += o.subtotalPence;
+      if (businessParts(o.createdAt).day < day) lastMonthSameDays += o.subtotalPence;
     } else if (t >= thisMonthStart.getTime() && t < todayStart.getTime()) {
-      thisMonthComplete += o.subtotalPaise;
+      thisMonthComplete += o.subtotalPence;
     }
   }
   if (day > 1) {
@@ -125,7 +125,7 @@ export function summariseSales(orders: SettledOrder[], now: Date): string[] {
   for (const o of orders) {
     const t = o.createdAt.getTime();
     if (t < fourWeeksAgo || t >= todayStart.getTime()) continue;
-    byHour[outletLocalParts(o.createdAt).hour] += o.subtotalPaise;
+    byHour[outletLocalParts(o.createdAt).hour] += o.subtotalPence;
     tradingDays.add(dayKey(o.createdAt));
   }
   if (tradingDays.size > 0) {
@@ -148,7 +148,7 @@ async function salesSection(outletId: string | undefined, businessId: string | u
   const from = Math.min(businessDayStart(year, month - 1, 1).getTime(), businessStartOfDay(now).getTime() - 28 * ONE_DAY_MS);
   const orders = await prisma.order.findMany({
     where: { ...scope, status: 'COMPLETED', deletedAt: null, createdAt: { gte: new Date(from) } },
-    select: { createdAt: true, subtotalPaise: true, outletId: true },
+    select: { createdAt: true, subtotalPence: true, outletId: true },
   });
   const lines = summariseSales(orders, now);
 
@@ -162,8 +162,8 @@ async function salesSection(outletId: string | undefined, businessId: string | u
       for (const ord of orders) {
         if (ord.outletId !== o.id) continue;
         const t = ord.createdAt.getTime();
-        if (t >= monthStart) mtd += ord.subtotalPaise;
-        if (t >= todayStart) today += ord.subtotalPaise;
+        if (t >= monthStart) mtd += ord.subtotalPence;
+        if (t >= todayStart) today += ord.subtotalPence;
       }
       return `${o.name}: today ${pounds(today)}, this month ${pounds(mtd)}`;
     });
@@ -266,12 +266,12 @@ async function usageVarianceLines(outletId: string | undefined, now: Date): Prom
   if (isAllOutlets(outletId)) return [];
   try {
     const v = await new VarianceService().getVariance(outletId, {}, now);
-    const over = v.items.filter((i) => i.inRecipes && i.variancePaise > 0).slice(0, 5);
+    const over = v.items.filter((i) => i.inRecipes && i.variancePence > 0).slice(0, 5);
     if (v.items.length === 0) {
       return ['- Usage vs recipes (last 30 days): not measurable yet; needs stock counts at least a day apart'];
     }
     if (over.length === 0) return ['- Usage vs recipes (last 30 days, between stock counts): nothing unexplained'];
-    const text = over.map((i) => `${i.name} ${+i.variance.toFixed(2)} ${i.unit} more than sales and logged waste explain (about ${pounds(i.variancePaise)})`).join('; ');
+    const text = over.map((i) => `${i.name} ${+i.variance.toFixed(2)} ${i.unit} more than sales and logged waste explain (about ${pounds(i.variancePence)})`).join('; ');
     return [`- Usage vs recipes (last 30 days, between stock counts): ${text}`];
   } catch (err) {
     logger.error({ err, outletId }, '[AlaynAI] Usage variance failed');
@@ -284,14 +284,14 @@ export interface RecipeCostRow {
   outletId: string;
   quantityPerUnit: number;
   wastagePercent: number;
-  unitCostPaise: number;
+  unitCostPence: number;
 }
 
 /**
  * Food cost per dish from recipes (ingredient cost per portion against the selling price). A dish with
  * recipes at several branches is averaged. Pure (no database) so it can be tested directly.
  */
-export function summariseRecipeCosts(dishes: { id: string; name: string; pricePaise: number }[], rows: RecipeCostRow[]): string[] {
+export function summariseRecipeCosts(dishes: { id: string; name: string; pricePence: number }[], rows: RecipeCostRow[]): string[] {
   const byDish = new Map<string, Map<string, RecipeCostRow[]>>();
   for (const r of rows) {
     const outlets = byDish.get(r.menuItemId) ?? new Map<string, RecipeCostRow[]>();
@@ -306,17 +306,17 @@ export function summariseRecipeCosts(dishes: { id: string; name: string; pricePa
       const outlets = byDish.get(d.id);
       if (!outlets) return null;
       const costs = [...outlets.values()].map((lines) =>
-        summarizeRecipeCost(lines.map((l) => ({ quantityPerUnit: l.quantityPerUnit, wastagePercent: l.wastagePercent, unitCostPaise: l.unitCostPaise })), d.pricePaise).costPerPortionPaise,
+        summarizeRecipeCost(lines.map((l) => ({ quantityPerUnit: l.quantityPerUnit, wastagePercent: l.wastagePercent, unitCostPence: l.unitCostPence })), d.pricePence).costPerPortionPence,
       );
       const cost = Math.round(costs.reduce((a, b) => a + b, 0) / costs.length);
-      return { name: d.name, price: d.pricePaise, cost, percent: d.pricePaise > 0 ? (cost / d.pricePaise) * 100 : null };
+      return { name: d.name, price: d.pricePence, cost, percent: d.pricePence > 0 ? (cost / d.pricePence) * 100 : null };
     })
     .filter((d): d is NonNullable<typeof d> => d !== null);
 
   if (costed.length === 0) {
     return ['- Food cost and margin per dish: no dish has a recipe yet, so it is not known. Say so if asked, and mention recipes can be added from the Menu page; compare dishes by sales instead'];
   }
-  const money = (paise: number) => `\u00A3${(paise / 100).toFixed(2)}`;
+  const money = (pence: number) => `\u00A3${(pence / 100).toFixed(2)}`;
   const describe = (d: (typeof costed)[number]) =>
     `${d.name} ${d.percent === null ? 'n/a' : `${d.percent.toFixed(0)}%`} (costs ${money(d.cost)}, price ${money(d.price)}, margin ${money(d.price - d.cost)})`;
   const withPercent = costed.filter((d) => d.percent !== null);
@@ -336,30 +336,30 @@ async function menuSection(outletId: string | undefined, businessId: string | un
   const sold = await prisma.orderItem.groupBy({
     by: ['menuItemId'],
     where: { order: { ...scope, status: 'COMPLETED', deletedAt: null, createdAt: { gte: monthStart } } },
-    _sum: { quantity: true, subtotalPaise: true },
+    _sum: { quantity: true, subtotalPence: true },
     orderBy: { _sum: { quantity: 'desc' } },
     take: 30,
   });
   const [soldItems, activeItems] = await Promise.all([
     prisma.menuItem.findMany({
       where: { id: { in: sold.map((s) => s.menuItemId) } },
-      select: { id: true, name: true, pricePaise: true },
+      select: { id: true, name: true, pricePence: true },
     }),
     prisma.menuItem.findMany({
       where: { ...menuItemScope(outletId, businessId), isActive: true, deletedAt: null },
-      select: { id: true, name: true, pricePaise: true },
+      select: { id: true, name: true, pricePence: true },
       take: 200,
     }),
   ]);
   const recipeRows = await prisma.recipe.findMany({
     where: { ...scope, item: { deletedAt: null } },
-    select: { menuItemId: true, outletId: true, quantityPerUnit: true, wastagePercent: true, item: { select: { unitCostPaise: true } } },
+    select: { menuItemId: true, outletId: true, quantityPerUnit: true, wastagePercent: true, item: { select: { unitCostPence: true } } },
   });
   const info = new Map(soldItems.map((m) => [m.id, m]));
   const rows = sold.map((s) => {
     const m = info.get(s.menuItemId);
     if (!m) return null;
-    return `${m.name}: ${s._sum.quantity ?? 0} sold, ${pounds(s._sum.subtotalPaise ?? 0)}, price ${pounds(m.pricePaise)}`;
+    return `${m.name}: ${s._sum.quantity ?? 0} sold, ${pounds(s._sum.subtotalPence ?? 0)}, price ${pounds(m.pricePence)}`;
   }).filter(Boolean);
 
   const soldIds = new Set(sold.map((s) => s.menuItemId));
@@ -373,7 +373,7 @@ async function menuSection(outletId: string | undefined, businessId: string | un
         outletId: r.outletId,
         quantityPerUnit: r.quantityPerUnit.toNumber(),
         wastagePercent: r.wastagePercent.toNumber(),
-        unitCostPaise: r.item.unitCostPaise,
+        unitCostPence: r.item.unitCostPence,
       })),
     ),
     `- Active menu items not sold at all this month: ${unsold.length ? unsold.slice(0, 20).join(', ') : 'None'}`,
@@ -396,28 +396,28 @@ export function reportToContextLines(r: ReportData): string[] {
     const fmt = (n: number) => (money ? formatMoney(n) : n.toLocaleString('en-GB'));
     lines.push(prev ? `- ${name}: ${fmt(cur[key])} now vs ${fmt(prev[key])} before (${changeText(ch[key])})` : `- ${name}: ${fmt(cur[key])}`);
   };
-  metric('Sales', 'netSalesPaise', true);
+  metric('Sales', 'netSalesPence', true);
   metric('Orders', 'orders', false);
-  metric('Average order value', 'avgOrderPaise', true);
-  metric('Discounts', 'discountPaise', true);
-  metric('Tax', 'taxPaise', true);
+  metric('Average order value', 'avgOrderPence', true);
+  metric('Discounts', 'discountPence', true);
+  metric('Tax', 'taxPence', true);
   metric('Cancelled orders', 'cancelledOrders', false);
-  metric('Cancelled order value', 'cancelledPaise', true);
-  metric('Stock wasted', 'wastePaise', true);
+  metric('Cancelled order value', 'cancelledPence', true);
+  metric('Stock wasted', 'wastePence', true);
 
   const rows = (title: string, list: ReportData['channels']) => {
     const parts = list.map((c) =>
-      `${c.label} ${formatMoney(c.current.netSalesPaise)} (${c.sharePct.toFixed(1)}% of sales${c.previous ? `, ${changeText(c.changePct)}` : ''})`);
+      `${c.label} ${formatMoney(c.current.netSalesPence)} (${c.sharePct.toFixed(1)}% of sales${c.previous ? `, ${changeText(c.changePct)}` : ''})`);
     if (parts.length) lines.push(`- ${title}: ${parts.join('; ')}`);
   };
   rows('Channels', r.channels);
   rows('Payments', r.payments);
 
   const itemPart = (i: ReportData['items'][number]) =>
-    `${i.name} ${formatMoney(i.salesPaise)} (${i.qty} sold${i.prevSalesPaise != null ? `, ${changeText(i.changePct)}` : ''})`;
+    `${i.name} ${formatMoney(i.salesPence)} (${i.qty} sold${i.prevSalesPence != null ? `, ${changeText(i.changePct)}` : ''})`;
   if (r.items.length) lines.push(`- Top items (item sales before bill discounts): ${r.items.slice(0, 10).map(itemPart).join('; ')}`);
-  const drops = r.items.filter((i) => i.changePct != null && i.changePct < 0 && i.prevSalesPaise != null)
-    .sort((a, b) => (a.salesPaise - (a.prevSalesPaise ?? 0)) - (b.salesPaise - (b.prevSalesPaise ?? 0))).slice(0, 5);
+  const drops = r.items.filter((i) => i.changePct != null && i.changePct < 0 && i.prevSalesPence != null)
+    .sort((a, b) => (a.salesPence - (a.prevSalesPence ?? 0)) - (b.salesPence - (b.prevSalesPence ?? 0))).slice(0, 5);
   if (drops.length) lines.push(`- Biggest item drops: ${drops.map(itemPart).join('; ')}`);
 
   rows('Weekdays', r.weekdays);

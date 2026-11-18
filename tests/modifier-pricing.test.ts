@@ -2,7 +2,7 @@ import { priceItemWithModifiers, PricingGroup } from '../src/modules/orders/modi
 import { createModifierGroupSchema, updateModifierGroupSchema } from '../src/modules/menu/menu.schema';
 import { createOrderSchema } from '../src/modules/orders/order.schema';
 
-const paneer = { name: 'Paneer Tikka', pricePaise: 25000 };
+const paneer = { name: 'Paneer Tikka', pricePence: 25000 };
 
 const portion: PricingGroup = {
   id: 'g-portion',
@@ -10,8 +10,8 @@ const portion: PricingGroup = {
   minSelection: 1,
   maxSelection: 1,
   modifiers: [
-    { id: 'm-half', name: 'Half', pricePaise: 18000 },
-    { id: 'm-full', name: 'Full', pricePaise: 30000 },
+    { id: 'm-half', name: 'Half', pricePence: 18000 },
+    { id: 'm-full', name: 'Full', pricePence: 30000 },
   ],
 };
 
@@ -21,23 +21,23 @@ const extras: PricingGroup = {
   minSelection: 0,
   maxSelection: 2,
   modifiers: [
-    { id: 'm-cheese', name: 'Extra Cheese', pricePaise: 3000 },
-    { id: 'm-butter', name: 'Extra Butter', pricePaise: 2000 },
-    { id: 'm-onion', name: 'Onion', pricePaise: 0 },
+    { id: 'm-cheese', name: 'Extra Cheese', pricePence: 3000 },
+    { id: 'm-butter', name: 'Extra Butter', pricePence: 2000 },
+    { id: 'm-onion', name: 'Onion', pricePence: 0 },
   ],
 };
 
 describe('Add-on and variant pricing comes from the menu, not the order request', () => {
   it('an item with no add-ons costs its menu price', () => {
-    expect(priceItemWithModifiers(paneer, [], []).unitPricePaise).toBe(25000);
+    expect(priceItemWithModifiers(paneer, [], []).unitPricePence).toBe(25000);
   });
 
   it('a chosen variant replaces the base price and extras add on top', () => {
-    const { unitPricePaise, modifiers } = priceItemWithModifiers(paneer, [portion, extras], ['m-full', 'm-cheese']);
-    expect(unitPricePaise).toBe(30000 + 3000);
+    const { unitPricePence, modifiers } = priceItemWithModifiers(paneer, [portion, extras], ['m-full', 'm-cheese']);
+    expect(unitPricePence).toBe(30000 + 3000);
     expect(modifiers).toEqual([
-      { id: 'm-full', groupId: 'g-portion', groupName: 'Portion', name: 'Full', pricePaise: 30000, isVariant: true },
-      { id: 'm-cheese', groupId: 'g-extras', groupName: 'Extras', name: 'Extra Cheese', pricePaise: 3000, isVariant: false },
+      { id: 'm-full', groupId: 'g-portion', groupName: 'Portion', name: 'Full', pricePence: 30000, isVariant: true },
+      { id: 'm-cheese', groupId: 'g-extras', groupName: 'Extras', name: 'Extra Cheese', pricePence: 3000, isVariant: false },
     ]);
   });
 
@@ -54,15 +54,15 @@ describe('Add-on and variant pricing comes from the menu, not the order request'
   });
 
   it('the same option sent twice is counted once', () => {
-    expect(priceItemWithModifiers(paneer, [extras], ['m-cheese', 'm-cheese']).unitPricePaise).toBe(28000);
+    expect(priceItemWithModifiers(paneer, [extras], ['m-cheese', 'm-cheese']).unitPricePence).toBe(28000);
   });
 
   it('a mandatory single choice with only free options adds nothing and keeps the base price', () => {
     const spice: PricingGroup = {
       id: 'g-spice', name: 'Spice', minSelection: 1, maxSelection: 1,
-      modifiers: [{ id: 'm-mild', name: 'Mild', pricePaise: 0 }, { id: 'm-hot', name: 'Hot', pricePaise: 0 }],
+      modifiers: [{ id: 'm-mild', name: 'Mild', pricePence: 0 }, { id: 'm-hot', name: 'Hot', pricePence: 0 }],
     };
-    expect(priceItemWithModifiers(paneer, [spice], ['m-hot']).unitPricePaise).toBe(25000);
+    expect(priceItemWithModifiers(paneer, [spice], ['m-hot']).unitPricePence).toBe(25000);
   });
 });
 
@@ -72,11 +72,11 @@ describe('Order and add-on group requests', () => {
       items: [{
         menuItemId: '7d1f4b56-1b8e-4a6c-9a3e-2f1c0d9b8a71',
         quantity: 1,
-        unitPricePaise: 1,
-        modifiers: [{ id: '0b9a8c7d-6e5f-4a3b-8c2d-1e0f9a8b7c6d', name: 'Free', pricePaise: -5000 }],
+        unitPricePence: 1,
+        modifiers: [{ id: '0b9a8c7d-6e5f-4a3b-8c2d-1e0f9a8b7c6d', name: 'Free', pricePence: -5000 }],
       }],
     });
-    expect(parsed.items[0]).not.toHaveProperty('unitPricePaise');
+    expect(parsed.items[0]).not.toHaveProperty('unitPricePence');
     expect(parsed.items[0].modifiers).toEqual([{ id: '0b9a8c7d-6e5f-4a3b-8c2d-1e0f9a8b7c6d' }]);
   });
 

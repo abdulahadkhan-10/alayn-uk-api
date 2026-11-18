@@ -46,7 +46,7 @@ describe('PO numbers', () => {
       poNumber: 'PO-SEA-20261102-001',
       supplierId: 'sup-1',
       supplierUserId: 'user-1',
-      totalAmountPaise: 425000,
+      totalAmountPence: 425000,
       outletId: 'outlet-1',
     };
 

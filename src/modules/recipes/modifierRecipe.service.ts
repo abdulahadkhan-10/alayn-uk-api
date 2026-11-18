@@ -3,7 +3,7 @@ import { prisma } from '../../config/prisma';
 import { AppError } from '../../utils/AppError';
 import { isAllOutlets } from '../../utils/tenantScope';
 import { EmployeeActor, assertOutletsAccessible } from '../employees/employee.permissions';
-import { lineCostPaise, summarizeRecipeCost } from './recipeCost';
+import { lineCostPence, summarizeRecipeCost } from './recipeCost';
 import { SaveModifierRecipeInput } from './recipe.schema';
 
 /** Recipes of add-ons / options ("Extra cheese"): taken out of stock on top of the dish's own recipe when sold. */
@@ -23,7 +23,7 @@ export class ModifierRecipeService {
         id: modifierItemId,
         group: { businessId, deletedAt: null, OR: [{ outletId: null }, { outletId }] },
       },
-      select: { id: true, name: true, pricePaise: true },
+      select: { id: true, name: true, pricePence: true },
     });
     if (!modifier) throw new AppError('MODIFIER_NOT_FOUND', 'Add-on not found', 404);
     return modifier;
@@ -34,7 +34,7 @@ export class ModifierRecipeService {
     const modifier = await this.findModifier(outlet, modifierItemId, businessId);
     const rows = await prisma.modifierRecipe.findMany({
       where: { modifierItemId, outletId: outlet, item: { deletedAt: null } },
-      include: { item: { select: { id: true, name: true, sku: true, unit: true, unitCostPaise: true } } },
+      include: { item: { select: { id: true, name: true, sku: true, unit: true, unitCostPence: true } } },
       orderBy: { createdAt: 'asc' },
     });
     const lines = rows.map((r) => {
@@ -45,15 +45,15 @@ export class ModifierRecipeService {
         name: r.item.name,
         sku: r.item.sku,
         unit: r.item.unit,
-        unitCostPaise: r.item.unitCostPaise,
+        unitCostPence: r.item.unitCostPence,
         quantity,
         wastagePercent,
-        lineCostPaise: lineCostPaise({ quantityPerUnit: quantity, wastagePercent, unitCostPaise: r.item.unitCostPaise }),
+        lineCostPence: lineCostPence({ quantityPerUnit: quantity, wastagePercent, unitCostPence: r.item.unitCostPence }),
       };
     });
     const summary = summarizeRecipeCost(
-      lines.map((l) => ({ quantityPerUnit: l.quantity, wastagePercent: l.wastagePercent, unitCostPaise: l.unitCostPaise })),
-      modifier.pricePaise,
+      lines.map((l) => ({ quantityPerUnit: l.quantity, wastagePercent: l.wastagePercent, unitCostPence: l.unitCostPence })),
+      modifier.pricePence,
     );
     return { modifierItemId: modifier.id, modifierName: modifier.name, outletId: outlet, hasRecipe: lines.length > 0, lines, ...summary };
   }

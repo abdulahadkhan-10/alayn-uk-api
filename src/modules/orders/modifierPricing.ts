@@ -3,7 +3,7 @@ import { AppError } from '../../utils/AppError';
 export interface PricingModifier {
   id: string;
   name: string;
-  pricePaise: number;
+  pricePence: number;
 }
 
 export interface PricingGroup {
@@ -19,7 +19,7 @@ export interface ModifierSnapshot {
   groupId: string;
   groupName: string;
   name: string;
-  pricePaise: number;
+  pricePence: number;
   isVariant: boolean;
 }
 
@@ -29,7 +29,7 @@ export interface ModifierSnapshot {
  * The POS and QR menus apply the same rule when showing the price.
  */
 export function isVariantGroup(group: PricingGroup) {
-  return group.minSelection === 1 && group.maxSelection === 1 && group.modifiers.some((m) => m.pricePaise > 0);
+  return group.minSelection === 1 && group.maxSelection === 1 && group.modifiers.some((m) => m.pricePence > 0);
 }
 
 /**
@@ -37,10 +37,10 @@ export function isVariantGroup(group: PricingGroup) {
  * (by id); names and prices always come from `groups`, and each group's min / max is enforced.
  */
 export function priceItemWithModifiers(
-  item: { name: string; pricePaise: number },
+  item: { name: string; pricePence: number },
   groups: PricingGroup[],
   selectedIds: string[],
-): { unitPricePaise: number; modifiers: ModifierSnapshot[] } {
+): { unitPricePence: number; modifiers: ModifierSnapshot[] } {
   const uniqueIds = [...new Set(selectedIds)];
   const optionById = new Map<string, { group: PricingGroup; modifier: PricingModifier }>();
   for (const group of groups) {
@@ -64,8 +64,8 @@ export function priceItemWithModifiers(
     chosenByGroup.set(match.group.id, list);
   }
 
-  let basePricePaise = item.pricePaise;
-  let extrasPaise = 0;
+  let basePricePence = item.pricePence;
+  let extrasPence = 0;
   const snapshot: ModifierSnapshot[] = [];
 
   for (const group of groups) {
@@ -84,20 +84,20 @@ export function priceItemWithModifiers(
     const variant = isVariantGroup(group);
     for (const modifier of chosen) {
       if (variant) {
-        if (modifier.pricePaise > 0) basePricePaise = modifier.pricePaise;
+        if (modifier.pricePence > 0) basePricePence = modifier.pricePence;
       } else {
-        extrasPaise += modifier.pricePaise;
+        extrasPence += modifier.pricePence;
       }
       snapshot.push({
         id: modifier.id,
         groupId: group.id,
         groupName: group.name,
         name: modifier.name,
-        pricePaise: modifier.pricePaise,
+        pricePence: modifier.pricePence,
         isVariant: variant,
       });
     }
   }
 
-  return { unitPricePaise: basePricePaise + extrasPaise, modifiers: snapshot };
+  return { unitPricePence: basePricePence + extrasPence, modifiers: snapshot };
 }

@@ -5,9 +5,9 @@
 
 export interface MovingAverageInput {
   currentStock: number;
-  currentUnitCostPaise: number;
+  currentUnitCostPence: number;
   incomingQty: number;
-  incomingUnitCostPaise: number;
+  incomingUnitCostPence: number;
 }
 
 /**
@@ -19,23 +19,23 @@ export interface MovingAverageInput {
  * Edge cases handled:
  * - If incoming quantity <= 0: keeps current unit cost.
  * - If current stock <= 0 (out of stock / negative stock drift): sets new unit cost to incoming cost.
- * - Integer paise rounding: returns integer paise to avoid fractional floating-point drift.
+ * - Integer pence rounding: returns integer pence to avoid fractional floating-point drift.
  */
 export function computeMovingAverageCost(input: MovingAverageInput): number {
-  const { currentStock, currentUnitCostPaise, incomingQty, incomingUnitCostPaise } = input;
+  const { currentStock, currentUnitCostPence, incomingQty, incomingUnitCostPence } = input;
 
   if (incomingQty <= 0) {
-    return currentUnitCostPaise;
+    return currentUnitCostPence;
   }
 
   const validCurrentStock = Math.max(0, currentStock);
 
   if (validCurrentStock === 0) {
-    return Math.round(incomingUnitCostPaise);
+    return Math.round(incomingUnitCostPence);
   }
 
-  const currentTotalVal = validCurrentStock * currentUnitCostPaise;
-  const incomingTotalVal = incomingQty * incomingUnitCostPaise;
+  const currentTotalVal = validCurrentStock * currentUnitCostPence;
+  const incomingTotalVal = incomingQty * incomingUnitCostPence;
   const totalQty = validCurrentStock + incomingQty;
 
   return Math.round((currentTotalVal + incomingTotalVal) / totalQty);
@@ -44,7 +44,7 @@ export function computeMovingAverageCost(input: MovingAverageInput): number {
 /**
  * Calculates the total financial loss for wasted inventory at the given unit cost.
  */
-export function computeWasteLossPaise(quantity: number, unitCostPaise: number): number {
-  if (quantity <= 0 || unitCostPaise <= 0) return 0;
-  return Math.round(quantity * unitCostPaise);
+export function computeWasteLossPence(quantity: number, unitCostPence: number): number {
+  if (quantity <= 0 || unitCostPence <= 0) return 0;
+  return Math.round(quantity * unitCostPence);
 }

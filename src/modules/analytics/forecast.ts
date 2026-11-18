@@ -16,7 +16,7 @@
  *                    been seen, with a deliberately wide range. Accuracy isn't claimed yet.
  *  - 14 or more    → "ok": the full model above.
  *
- * Amounts are unit-agnostic (the dashboard passes paise).
+ * Amounts are unit-agnostic (the dashboard passes pence).
  */
 
 const WEEKS = 8;

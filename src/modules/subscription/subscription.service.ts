@@ -8,8 +8,8 @@ export interface PlanConfig {
   planCode: string;
   name: string;
   description: string;
-  monthlyFeePaise: number; // Monthly fee in pence, including VAT
-  yearlyFeePaise: number; // Fee in pence for a 12-month term, including VAT
+  monthlyFeePence: number; // Monthly fee in pence, including VAT
+  yearlyFeePence: number; // Fee in pence for a 12-month term, including VAT
   vatRatePercent: number; // UK VAT rate (20%)
   features: string[];
 }
@@ -19,8 +19,9 @@ export const SUBSCRIPTION_PLANS: Record<string, PlanConfig> = {
     planCode: 'MONTHLY_STANDARD',
     name: 'Alayn Smart Branch Pro',
     description: 'Complete operational suite for 1 physical restaurant branch',
-    monthlyFeePaise: parseInt(process.env.OUTLET_MONTHLY_FEE_PAISE || '7900', 10), // £79
-    yearlyFeePaise: parseInt(process.env.OUTLET_YEARLY_FEE_PAISE || '60000', 10), // £600
+    // *_PAISE is the old variable name; read until the server env is renamed to *_PENCE
+    monthlyFeePence: parseInt(process.env.OUTLET_MONTHLY_FEE_PENCE || process.env.OUTLET_MONTHLY_FEE_PAISE || '7900', 10), // £79
+    yearlyFeePence: parseInt(process.env.OUTLET_YEARLY_FEE_PENCE || process.env.OUTLET_YEARLY_FEE_PAISE || '60000', 10), // £600
     vatRatePercent: 20.0,
     features: [
       'Unlimited POS Billing Counters & Table QR Tokens',
@@ -41,7 +42,7 @@ export class SubscriptionService {
 
   getPlans() {
     return Object.values(SUBSCRIPTION_PLANS).map((plan) => {
-      const totalPounds = plan.monthlyFeePaise / 100;
+      const totalPounds = plan.monthlyFeePence / 100;
       const vatPounds = Math.round((totalPounds - totalPounds / (1 + plan.vatRatePercent / 100)) * 100) / 100;
       const basePounds = Math.round((totalPounds - vatPounds) * 100) / 100;
 
@@ -50,7 +51,7 @@ export class SubscriptionService {
         basePricePounds: basePounds,
         vatPounds: vatPounds,
         totalPayablePounds: totalPounds,
-        totalPayablePaise: Math.round(totalPounds * 100)
+        totalPayablePence: Math.round(totalPounds * 100)
       };
     });
   }
@@ -70,7 +71,7 @@ export class SubscriptionService {
     // Base amount before discount
     // Each full 12 months is billed at the yearly rate, any remaining months at the monthly rate
     const rawBasePounds =
-      (Math.floor(validatedMonths / 12) * plan.yearlyFeePaise + (validatedMonths % 12) * plan.monthlyFeePaise) / 100;
+      (Math.floor(validatedMonths / 12) * plan.yearlyFeePence + (validatedMonths % 12) * plan.monthlyFeePence) / 100;
 
     // Apply Coupon if provided (Server-authoritative calculation)
     let appliedCoupon: any = null;
@@ -101,9 +102,9 @@ export class SubscriptionService {
     const totalPounds = Math.round(Math.max(0, rawBasePounds - discountPounds) * 100) / 100;
     const vatPounds = Math.round((totalPounds - totalPounds / (1 + plan.vatRatePercent / 100)) * 100) / 100;
     const finalBasePounds = Math.round((totalPounds - vatPounds) * 100) / 100;
-    const totalPaise = Math.round(totalPounds * 100);
-    const vatPaise = Math.round(vatPounds * 100);
-    const discountPaise = Math.round(discountPounds * 100);
+    const totalPence = Math.round(totalPounds * 100);
+    const vatPence = Math.round(vatPounds * 100);
+    const discountPence = Math.round(discountPounds * 100);
 
     // Generate unique Cashfree order ID
     const shortOutletId = outletId.replace(/-/g, '').substring(0, 8);
@@ -127,25 +128,25 @@ export class SubscriptionService {
       status: isRenewingActive ? OutletSubscriptionStatus.ACTIVE : OutletSubscriptionStatus.PENDING_PAYMENT,
       planCode: plan.planCode,
       planName: planNameWithDuration,
-      monthlyFeePaise: plan.monthlyFeePaise,
+      monthlyFeePence: plan.monthlyFeePence,
     });
 
     // A coupon that covers the whole amount needs no gateway payment (Cashfree cannot take a £0
     // order), so the subscription is activated directly for the chosen months
-    if (totalPaise === 0) {
+    if (totalPence === 0) {
       const freeOrderId = `ALAYN_FREE_${shortOutletId}_${Date.now()}`;
       await this.repository.createPaymentRecord({
         outletId,
         businessId,
         outletSubscriptionId: subRecord.id,
         cfOrderId: freeOrderId,
-        amountPaise: 0,
-        taxAmountPaise: 0,
+        amountPence: 0,
+        taxAmountPence: 0,
         currency: 'GBP',
         paymentStatus: SubscriptionPaymentStatus.PENDING,
         couponId: appliedCoupon?.id,
         couponCode: appliedCoupon?.code,
-        discountAmountPaise: discountPaise,
+        discountAmountPence: discountPence,
         billingMonths: validatedMonths,
       });
       const result = await this.repository.markPaymentSuccess(freeOrderId, {
@@ -220,14 +221,14 @@ export class SubscriptionService {
       businessId,
       outletSubscriptionId: subRecord.id,
       cfOrderId,
-      amountPaise: totalPaise,
-      taxAmountPaise: vatPaise,
+      amountPence: totalPence,
+      taxAmountPence: vatPence,
       currency: 'GBP',
       paymentSessionId: cfOrder.payment_session_id,
       paymentStatus: SubscriptionPaymentStatus.PENDING,
       couponId: appliedCoupon?.id,
       couponCode: appliedCoupon?.code,
-      discountAmountPaise: discountPaise,
+      discountAmountPence: discountPence,
       billingMonths: validatedMonths,
     });
 
@@ -278,7 +279,7 @@ export class SubscriptionService {
     const successfulPayment = paymentsList.find((p) => p.payment_status === 'SUCCESS') || paymentsList[0];
 
     // Anti-fraud: Verify paid amount matches what was charged
-    const expectedPounds = payment.amountPaise / 100;
+    const expectedPounds = payment.amountPence / 100;
     const paidPounds = Number(cfOrder.order_amount);
     if (paidPounds < expectedPounds) {
       console.error(`[SubscriptionService] Paid amount mismatch for order ${cfOrderId}: paid £${paidPounds}, expected £${expectedPounds}`);
@@ -390,7 +391,7 @@ export class SubscriptionService {
       daysRemaining,
       planCode: subscription.planCode,
       planName: subscription.planName,
-      monthlyFeePounds: subscription.monthlyFeePaise / 100,
+      monthlyFeePounds: subscription.monthlyFeePence / 100,
       currentPeriodStart: subscription.currentPeriodStart,
       currentPeriodEnd: subscription.currentPeriodEnd,
       recentPayments: subscription.payments
@@ -406,8 +407,8 @@ export class SubscriptionService {
       outletId: rec.outletId,
       outletName: rec.outlet?.name || 'Branch Outlet',
       outletCity: rec.outlet?.city || '',
-      amountPounds: rec.amountPaise / 100,
-      taxPounds: rec.taxAmountPaise / 100,
+      amountPounds: rec.amountPence / 100,
+      taxPounds: rec.taxAmountPence / 100,
       status: rec.paymentStatus,
       paymentMethod: rec.paymentMethod || 'CARD',
       paidAt: rec.paidAt || rec.createdAt,

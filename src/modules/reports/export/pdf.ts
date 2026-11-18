@@ -151,7 +151,7 @@ function breakdownTable(w: Writer, title: string, first: string, rows: Breakdown
   if (rows.length === 0) return;
   w.heading(title, undefined, keepRows(rows.length));
   w.table(nameColumns(first, hasPrev), rows.map((r) => {
-    const cells: Cell[] = [r.label, formatMoney(r.current.netSalesPaise), fmtCount(r.current.orders), fmtShare(r.sharePct)];
+    const cells: Cell[] = [r.label, formatMoney(r.current.netSalesPence), fmtCount(r.current.orders), fmtShare(r.sharePct)];
     if (hasPrev) cells.push({ text: fmtPct(r.changePct), color: changeColor(r.changePct, false) });
     return cells;
   }));
@@ -168,7 +168,7 @@ function itemsTable(w: Writer, title: string, rows: ItemRow[], hasPrev: boolean)
   const used = 140 + tail.reduce((s, c) => s + c.width, 0);
   const columns: Column[] = [{ label: 'Item', width: WIDTH - used }, { label: 'Category', width: 140 }, ...tail];
   w.table(columns, rows.map((r) => {
-    const cells: Cell[] = [r.name, r.category, fmtCount(r.qty), formatMoney(r.salesPaise)];
+    const cells: Cell[] = [r.name, r.category, fmtCount(r.qty), formatMoney(r.salesPence)];
     if (hasPrev) cells.push({ text: fmtPct(r.changePct), color: changeColor(r.changePct, false) });
     return cells;
   }));
@@ -177,14 +177,14 @@ function itemsTable(w: Writer, title: string, rows: ItemRow[], hasPrev: boolean)
 // ---------- sections ----------
 
 const HEADLINE: { label: string; key: keyof Totals; money: boolean; lowerIsBetter?: boolean; neutral?: boolean }[] = [
-  { label: 'Sales (before tax)', key: 'netSalesPaise', money: true },
+  { label: 'Sales (before tax)', key: 'netSalesPence', money: true },
   { label: 'Orders', key: 'orders', money: false },
-  { label: 'Average order value', key: 'avgOrderPaise', money: true },
-  { label: 'Discounts', key: 'discountPaise', money: true, neutral: true },
-  { label: 'Tax collected', key: 'taxPaise', money: true, neutral: true },
-  { label: 'Service charge', key: 'serviceChargePaise', money: true, neutral: true },
+  { label: 'Average order value', key: 'avgOrderPence', money: true },
+  { label: 'Discounts', key: 'discountPence', money: true, neutral: true },
+  { label: 'Tax collected', key: 'taxPence', money: true, neutral: true },
+  { label: 'Service charge', key: 'serviceChargePence', money: true, neutral: true },
   { label: 'Cancelled orders', key: 'cancelledOrders', money: false, lowerIsBetter: true },
-  { label: 'Waste', key: 'wastePaise', money: true, lowerIsBetter: true },
+  { label: 'Waste', key: 'wastePence', money: true, lowerIsBetter: true },
 ];
 
 function headlineTable(w: Writer, r: ReportData) {
@@ -223,9 +223,9 @@ function condense(current: TrendBucket[], previous: TrendBucket[], size: number)
     const ps = previous.slice(i, i + size);
     out.push({
       label: cs[0]?.label ?? '',
-      cur: cs.reduce((s, b) => s + b.netSalesPaise, 0),
+      cur: cs.reduce((s, b) => s + b.netSalesPence, 0),
       orders: cs.reduce((s, b) => s + b.orders, 0),
-      prev: previous.length > 0 ? ps.reduce((s, b) => s + b.netSalesPaise, 0) : null,
+      prev: previous.length > 0 ? ps.reduce((s, b) => s + b.netSalesPence, 0) : null,
     });
   }
   return out;
@@ -294,7 +294,7 @@ function trendSection(w: Writer, r: ReportData) {
 }
 
 function rankedItems(items: ItemRow[]): { top: ItemRow[]; lowest: ItemRow[] } {
-  const sold = items.filter((i) => i.qty > 0).sort((a, b) => b.salesPaise - a.salesPaise);
+  const sold = items.filter((i) => i.qty > 0).sort((a, b) => b.salesPence - a.salesPence);
   return { top: sold.slice(0, 20), lowest: sold.slice(20).slice(-10).reverse() };
 }
 
@@ -329,7 +329,7 @@ export function renderReportPdf(report: ReportWithScope, generatedAt: Date, opts
       doc.moveTo(MARGIN, w.y).lineTo(MARGIN + WIDTH, w.y).lineWidth(1).strokeColor(CURRENT).stroke();
       w.y += 6;
 
-      const noSales = report.totals.current.orders === 0 && report.totals.current.netSalesPaise === 0;
+      const noSales = report.totals.current.orders === 0 && report.totals.current.netSalesPence === 0;
       if (noSales) {
         w.heading('No sales in this period', undefined, 0);
       } else {
@@ -353,7 +353,7 @@ export function renderReportPdf(report: ReportWithScope, generatedAt: Date, opts
         w.heading('Waste by reason', undefined, keepRows(report.waste.length));
         w.table(
           [{ label: 'Reason', width: WIDTH - 200 }, { label: 'Cost', width: 100, align: 'right' }, { label: 'Entries', width: 100, align: 'right' }],
-          report.waste.map((r) => [r.label, formatMoney(r.current.netSalesPaise), fmtCount(r.current.orders)]),
+          report.waste.map((r) => [r.label, formatMoney(r.current.netSalesPence), fmtCount(r.current.orders)]),
         );
       }
       if (!noSales && outlets.length > 1) breakdownTable(w, 'Outlets', 'Outlet', report.outlets, hasPrev);

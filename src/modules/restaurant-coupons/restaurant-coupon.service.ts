@@ -28,8 +28,8 @@ export class RestaurantCouponService {
       description: coupon.description,
       discountType: coupon.discountType,
       discountValue: Number(coupon.discountValue),
-      minOrderAmount: coupon.minOrderPaise ? coupon.minOrderPaise / 100 : null,
-      maxDiscountAmount: coupon.maxDiscountPaise ? coupon.maxDiscountPaise / 100 : null,
+      minOrderAmount: coupon.minOrderPence ? coupon.minOrderPence / 100 : null,
+      maxDiscountAmount: coupon.maxDiscountPence ? coupon.maxDiscountPence / 100 : null,
       isActive: coupon.isActive,
       expiresAt: coupon.expiresAt,
       usageLimit: coupon.usageLimit,
@@ -61,8 +61,8 @@ export class RestaurantCouponService {
       throw new AppError('COUPON_ALREADY_EXISTS', `A coupon with code "${formattedCode}" already exists`, 409);
     }
 
-    const minOrderPaise = data.minOrderAmount != null ? Math.round(data.minOrderAmount * 100) : null;
-    const maxDiscountPaise = data.maxDiscountAmount != null ? Math.round(data.maxDiscountAmount * 100) : null;
+    const minOrderPence = data.minOrderAmount != null ? Math.round(data.minOrderAmount * 100) : null;
+    const maxDiscountPence = data.maxDiscountAmount != null ? Math.round(data.maxDiscountAmount * 100) : null;
     const expiresAt = data.expiresAt ? new Date(data.expiresAt) : null;
 
     const coupon = await prisma.restaurantCoupon.create({
@@ -73,8 +73,8 @@ export class RestaurantCouponService {
         description: data.description || null,
         discountType: data.discountType,
         discountValue: new Prisma.Decimal(data.discountValue),
-        minOrderPaise,
-        maxDiscountPaise,
+        minOrderPence,
+        maxDiscountPence,
         expiresAt,
         usageLimit: data.usageLimit || null,
         createdById,
@@ -175,7 +175,7 @@ export class RestaurantCouponService {
   /**
    * High-performance verification of coupon at bill settlement
    */
-  async validateCoupon(businessId: string, outletId: string, code: string, subtotalPaise: number) {
+  async validateCoupon(businessId: string, outletId: string, code: string, subtotalPence: number) {
     const formattedCode = code.trim().toUpperCase();
 
     // 1. Direct index seek
@@ -213,8 +213,8 @@ export class RestaurantCouponService {
     }
 
     // 6. Minimum order value check
-    if (coupon.minOrderPaise != null && subtotalPaise < coupon.minOrderPaise) {
-      const minAmountPounds = (coupon.minOrderPaise / 100).toFixed(0);
+    if (coupon.minOrderPence != null && subtotalPence < coupon.minOrderPence) {
+      const minAmountPounds = (coupon.minOrderPence / 100).toFixed(0);
       throw new AppError(
         'MIN_ORDER_NOT_MET',
         `Minimum order amount of £${minAmountPounds} required for coupon ${formattedCode}`,
@@ -222,21 +222,21 @@ export class RestaurantCouponService {
       );
     }
 
-    // 7. Calculate exact discount in paise
-    let discountPaise = 0;
+    // 7. Calculate exact discount in pence
+    let discountPence = 0;
     if (coupon.discountType === 'PERCENTAGE') {
       const rate = Number(coupon.discountValue);
-      discountPaise = Math.round((subtotalPaise * rate) / 100);
-      if (coupon.maxDiscountPaise != null) {
-        discountPaise = Math.min(discountPaise, coupon.maxDiscountPaise);
+      discountPence = Math.round((subtotalPence * rate) / 100);
+      if (coupon.maxDiscountPence != null) {
+        discountPence = Math.min(discountPence, coupon.maxDiscountPence);
       }
     } else {
       // FIXED_AMOUNT
-      discountPaise = Math.round(Number(coupon.discountValue) * 100);
+      discountPence = Math.round(Number(coupon.discountValue) * 100);
     }
 
     // Discount can never exceed subtotal
-    discountPaise = Math.min(discountPaise, subtotalPaise);
+    discountPence = Math.min(discountPence, subtotalPence);
 
     return {
       valid: true,
@@ -244,11 +244,11 @@ export class RestaurantCouponService {
       code: coupon.code,
       discountType: coupon.discountType,
       discountValue: Number(coupon.discountValue),
-      discountPaise,
-      discountAmount: discountPaise / 100,
+      discountPence,
+      discountAmount: discountPence / 100,
       description: coupon.description,
-      minOrderAmount: coupon.minOrderPaise ? coupon.minOrderPaise / 100 : null,
-      maxDiscountAmount: coupon.maxDiscountPaise ? coupon.maxDiscountPaise / 100 : null,
+      minOrderAmount: coupon.minOrderPence ? coupon.minOrderPence / 100 : null,
+      maxDiscountAmount: coupon.maxDiscountPence ? coupon.maxDiscountPence / 100 : null,
     };
   }
 }

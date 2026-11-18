@@ -5,12 +5,12 @@ import { ReportRequest } from './query';
 // Enough for any real period; the totals and per-person figures still cover everything
 const MAX_ROWS = 500;
 
-export interface RemovalTotals { removals: number; quantity: number; amountPaise: number }
+export interface RemovalTotals { removals: number; quantity: number; amountPence: number }
 
 export interface RemovedItemsReport {
   period: { label: string };
   // afterServed: the food went to the table and was then taken off the bill, the case most worth checking
-  totals: RemovalTotals & { afterServedRemovals: number; afterServedPaise: number };
+  totals: RemovalTotals & { afterServedRemovals: number; afterServedPence: number };
   byPerson: (RemovalTotals & { key: string; name: string; role: string })[];
   byReason: (RemovalTotals & { reason: string })[];
   rows: {
@@ -21,7 +21,7 @@ export interface RemovedItemsReport {
     outletName: string;
     itemName: string;
     quantity: number;
-    amountPaise: number;
+    amountPence: number;
     reason: string;
     itemStage: string;
     removedByName: string;
@@ -30,11 +30,11 @@ export interface RemovedItemsReport {
   truncated: boolean;
 }
 
-function tally<K extends string>(map: Map<K, RemovalTotals>, key: K, quantity: number, amountPaise: number) {
-  const t = map.get(key) ?? { removals: 0, quantity: 0, amountPaise: 0 };
+function tally<K extends string>(map: Map<K, RemovalTotals>, key: K, quantity: number, amountPence: number) {
+  const t = map.get(key) ?? { removals: 0, quantity: 0, amountPence: 0 };
   t.removals += 1;
   t.quantity += quantity;
-  t.amountPaise += amountPaise;
+  t.amountPence += amountPence;
   map.set(key, t);
 }
 
@@ -60,7 +60,7 @@ export async function buildRemovedItemsReport(req: ReportRequest, outletIds: str
   ]);
   const outletNames = new Map(outlets.map((o) => [o.id, o.name]));
 
-  const totals = { removals: 0, quantity: 0, amountPaise: 0, afterServedRemovals: 0, afterServedPaise: 0 };
+  const totals = { removals: 0, quantity: 0, amountPence: 0, afterServedRemovals: 0, afterServedPence: 0 };
   const people = new Map<string, RemovalTotals>();
   const personInfo = new Map<string, { name: string; role: string }>();
   const reasons = new Map<string, RemovalTotals>();
@@ -68,19 +68,19 @@ export async function buildRemovedItemsReport(req: ReportRequest, outletIds: str
   for (const r of removals) {
     totals.removals += 1;
     totals.quantity += r.quantity;
-    totals.amountPaise += r.amountPaise;
+    totals.amountPence += r.amountPence;
     if (r.itemStage === 'SERVED') {
       totals.afterServedRemovals += 1;
-      totals.afterServedPaise += r.amountPaise;
+      totals.afterServedPence += r.amountPence;
     }
 
     const personKey = r.removedById ?? `name:${r.removedByName}`;
     personInfo.set(personKey, { name: r.removedByName, role: r.removedByRole });
-    tally(people, personKey, r.quantity, r.amountPaise);
-    tally(reasons, reasonGroup(r.reason), r.quantity, r.amountPaise);
+    tally(people, personKey, r.quantity, r.amountPence);
+    tally(reasons, reasonGroup(r.reason), r.quantity, r.amountPence);
   }
 
-  const byValue = (a: RemovalTotals, b: RemovalTotals) => b.amountPaise - a.amountPaise || b.removals - a.removals;
+  const byValue = (a: RemovalTotals, b: RemovalTotals) => b.amountPence - a.amountPence || b.removals - a.removals;
 
   return {
     period: { label: describeRange(range, now) },
@@ -95,7 +95,7 @@ export async function buildRemovedItemsReport(req: ReportRequest, outletIds: str
       outletName: outletNames.get(r.outletId) ?? '',
       itemName: r.itemName,
       quantity: r.quantity,
-      amountPaise: r.amountPaise,
+      amountPence: r.amountPence,
       reason: r.reason,
       itemStage: r.itemStage,
       removedByName: r.removedByName,

@@ -3,7 +3,7 @@ import { prisma } from '../../config/prisma';
 import { AppError } from '../../utils/AppError';
 import { isAllOutlets, menuItemScope } from '../../utils/tenantScope';
 import { EmployeeActor, assertOutletsAccessible } from '../employees/employee.permissions';
-import { lineCostPaise, summarizeRecipeCost } from './recipeCost';
+import { lineCostPence, summarizeRecipeCost } from './recipeCost';
 import { SaveRecipeInput } from './recipe.schema';
 
 type LineInput = { itemId: string; quantity: number; wastagePercent: number };
@@ -20,7 +20,7 @@ export class RecipeService {
   private async findMenuItem(outletId: string, menuItemId: string, businessId?: string | null) {
     const menuItem = await prisma.menuItem.findFirst({
       where: { id: menuItemId, deletedAt: null, ...menuItemScope(outletId, businessId) },
-      select: { id: true, name: true, pricePaise: true },
+      select: { id: true, name: true, pricePence: true },
     });
     if (!menuItem) throw new AppError('MENU_ITEM_NOT_FOUND', 'Menu item not found', 404);
     return menuItem;
@@ -31,19 +31,19 @@ export class RecipeService {
     const menuItem = await this.findMenuItem(outlet, menuItemId, businessId);
     const rows = await prisma.recipe.findMany({
       where: { menuItemId, outletId: outlet, item: { deletedAt: null } },
-      include: { item: { select: { id: true, name: true, sku: true, unit: true, unitCostPaise: true } } },
+      include: { item: { select: { id: true, name: true, sku: true, unit: true, unitCostPence: true } } },
       orderBy: { createdAt: 'asc' },
     });
     return this.present(menuItem, outlet, rows);
   }
 
   private present(
-    menuItem: { id: string; name: string; pricePaise: number },
+    menuItem: { id: string; name: string; pricePence: number },
     outletId: string,
     rows: {
       quantityPerUnit: Prisma.Decimal;
       wastagePercent: Prisma.Decimal;
-      item: { id: string; name: string; sku: string; unit: string; unitCostPaise: number };
+      item: { id: string; name: string; sku: string; unit: string; unitCostPence: number };
     }[],
   ) {
     const lines = rows.map((r) => {
@@ -54,15 +54,15 @@ export class RecipeService {
         name: r.item.name,
         sku: r.item.sku,
         unit: r.item.unit,
-        unitCostPaise: r.item.unitCostPaise,
+        unitCostPence: r.item.unitCostPence,
         quantity,
         wastagePercent,
-        lineCostPaise: lineCostPaise({ quantityPerUnit: quantity, wastagePercent, unitCostPaise: r.item.unitCostPaise }),
+        lineCostPence: lineCostPence({ quantityPerUnit: quantity, wastagePercent, unitCostPence: r.item.unitCostPence }),
       };
     });
     const summary = summarizeRecipeCost(
-      lines.map((l) => ({ quantityPerUnit: l.quantity, wastagePercent: l.wastagePercent, unitCostPaise: l.unitCostPaise })),
-      menuItem.pricePaise,
+      lines.map((l) => ({ quantityPerUnit: l.quantity, wastagePercent: l.wastagePercent, unitCostPence: l.unitCostPence })),
+      menuItem.pricePence,
     );
     return { menuItemId: menuItem.id, menuItemName: menuItem.name, outletId, hasRecipe: lines.length > 0, lines, ...summary };
   }
@@ -158,19 +158,19 @@ export class RecipeService {
     const [menuItems, rows] = await Promise.all([
       prisma.menuItem.findMany({
         where: { deletedAt: null, ...menuItemScope(outlet, businessId) },
-        select: { id: true, name: true, pricePaise: true, isActive: true, category: { select: { name: true } } },
+        select: { id: true, name: true, pricePence: true, isActive: true, category: { select: { name: true } } },
         orderBy: { name: 'asc' },
       }),
       prisma.recipe.findMany({
         where: { outletId: outlet, item: { deletedAt: null } },
-        select: { menuItemId: true, quantityPerUnit: true, wastagePercent: true, item: { select: { unitCostPaise: true } } },
+        select: { menuItemId: true, quantityPerUnit: true, wastagePercent: true, item: { select: { unitCostPence: true } } },
       }),
     ]);
 
-    const byMenuItem = new Map<string, { quantityPerUnit: number; wastagePercent: number; unitCostPaise: number }[]>();
+    const byMenuItem = new Map<string, { quantityPerUnit: number; wastagePercent: number; unitCostPence: number }[]>();
     for (const r of rows) {
       const list = byMenuItem.get(r.menuItemId) ?? [];
-      list.push({ quantityPerUnit: r.quantityPerUnit.toNumber(), wastagePercent: r.wastagePercent.toNumber(), unitCostPaise: r.item.unitCostPaise });
+      list.push({ quantityPerUnit: r.quantityPerUnit.toNumber(), wastagePercent: r.wastagePercent.toNumber(), unitCostPence: r.item.unitCostPence });
       byMenuItem.set(r.menuItemId, list);
     }
 
@@ -184,8 +184,8 @@ export class RecipeService {
         hasRecipe: !!lines,
         ingredientCount: lines?.length ?? 0,
         ...(lines
-          ? summarizeRecipeCost(lines, m.pricePaise)
-          : { pricePaise: m.pricePaise, costPerPortionPaise: null, marginPaise: null, foodCostPercent: null }),
+          ? summarizeRecipeCost(lines, m.pricePence)
+          : { pricePence: m.pricePence, costPerPortionPence: null, marginPence: null, foodCostPercent: null }),
       };
     });
     const withRecipe = items.filter((i) => i.hasRecipe).length;

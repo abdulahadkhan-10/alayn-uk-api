@@ -452,7 +452,7 @@ export class MenuRepository {
 function toModifierItemData(m: any, idx: number) {
   return {
     name: m.name,
-    pricePaise: m.pricePaise ?? (m.price ? Math.round(m.price * 100) : 0),
+    pricePence: m.pricePence ?? (m.price ? Math.round(m.price * 100) : 0),
     isVeg: m.isVeg ?? true,
     dietaryType: m.dietaryType || (m.isVeg === false ? 'NON_VEG' : 'VEG'),
     isActive: m.isActive ?? true,

@@ -60,7 +60,7 @@ export class OutletRepository {
             status: OutletSubscriptionStatus.PENDING_PAYMENT,
             planCode: 'MONTHLY_STANDARD',
             planName: 'Standard Monthly Pro',
-            monthlyFeePaise: 7900,
+            monthlyFeePence: 7900,
             taxRatePercent: 20.0,
             currency: 'GBP',
             currentPeriodStart: new Date(),

@@ -34,7 +34,7 @@ beforeEach(() => {
   (prisma.wasteLog.findMany as jest.Mock).mockResolvedValue([]);
   (prisma.wasteLog.count as jest.Mock).mockResolvedValue(0);
   (prisma.wasteLog.groupBy as jest.Mock).mockResolvedValue([]);
-  (prisma.wasteLog.aggregate as jest.Mock).mockResolvedValue({ _sum: { costAtLoggingPaise: 0 } });
+  (prisma.wasteLog.aggregate as jest.Mock).mockResolvedValue({ _sum: { costAtLoggingPence: 0 } });
   (prisma.item.findMany as jest.Mock).mockResolvedValue([]);
   (prisma.purchaseOrder.findMany as jest.Mock).mockResolvedValue([]);
   (prisma.purchaseOrder.findFirst as jest.Mock).mockResolvedValue(null);

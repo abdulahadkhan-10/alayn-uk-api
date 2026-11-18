@@ -37,7 +37,7 @@ describe('asking for the bill from the table QR', () => {
       orderNumber: 'ALA1',
       tableNumber: 4,
       outletId: OUTLET.id,
-      totalPaise: 231_000,
+      totalPence: 231_000,
       payments,
     });
 
@@ -52,25 +52,25 @@ describe('asking for the bill from the table QR', () => {
     await service.requestTableBill('table-4-token', { paymentMethod: 'CARD' });
 
     expect(prisma.payment.create).toHaveBeenCalledWith({
-      data: { orderId: 'bill-1', amountPaise: 231_000, method: 'CARD', status: 'PENDING', reference: null },
+      data: { orderId: 'bill-1', amountPence: 231_000, method: 'CARD', status: 'PENDING', reference: null },
     });
     expect(NotificationService.notifyBillRequested).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'bill-1', tableNumber: 4, method: 'CARD', amountPaise: 231_000 })
+      expect.objectContaining({ id: 'bill-1', tableNumber: 4, method: 'CARD', amountPence: 231_000 })
     );
   });
 
   it('asks only for what is still due and keeps the UTR of a UPI payment', async () => {
-    openBill([{ status: 'CONFIRMED', amountPaise: 50_000, method: 'CASH' }]);
+    openBill([{ status: 'CONFIRMED', amountPence: 50_000, method: 'CASH' }]);
 
     await service.requestTableBill('table-4-token', { paymentMethod: 'CARD', paymentRef: ' 412345678901 ' });
 
     expect(prisma.payment.create).toHaveBeenCalledWith({
-      data: { orderId: 'bill-1', amountPaise: 181_000, method: 'CARD', status: 'PENDING', reference: '412345678901' },
+      data: { orderId: 'bill-1', amountPence: 181_000, method: 'CARD', status: 'PENDING', reference: '412345678901' },
     });
   });
 
   it('replaces an earlier choice instead of adding to it', async () => {
-    openBill([{ status: 'PENDING', amountPaise: 115_500, method: 'CASH' }]);
+    openBill([{ status: 'PENDING', amountPence: 115_500, method: 'CASH' }]);
 
     await service.requestTableBill('table-4-token', { paymentMethod: 'CARD' });
 
@@ -84,7 +84,7 @@ describe('asking for the bill from the table QR', () => {
   });
 
   it('records nothing when the bill is already paid', async () => {
-    openBill([{ status: 'CONFIRMED', amountPaise: 231_000, method: 'CARD' }]);
+    openBill([{ status: 'CONFIRMED', amountPence: 231_000, method: 'CARD' }]);
 
     await service.requestTableBill('table-4-token', { paymentMethod: 'CASH' });
 

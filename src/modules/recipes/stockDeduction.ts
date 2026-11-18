@@ -81,7 +81,7 @@ export async function deductStockForOrder(
   const ingredientIds = [...new Set([...recipeRows.map((r) => r.itemId), ...modifierRows.map((r) => r.itemId)])];
   const items = await tx.item.findMany({
     where: { id: { in: ingredientIds }, outletId: order.outletId, deletedAt: null },
-    select: { id: true, name: true, unit: true, unitCostPaise: true, reorderThreshold: true },
+    select: { id: true, name: true, unit: true, unitCostPence: true, reorderThreshold: true },
   });
   const itemById = new Map(items.map((i) => [i.id, i]));
   const recipeLines = recipeRows
@@ -102,7 +102,7 @@ export async function deductStockForOrder(
       wastagePercent: r.wastagePercent.toNumber(),
     }));
 
-  const costs = Object.fromEntries(items.map((i) => [i.id, i.unitCostPaise]));
+  const costs = Object.fromEntries(items.map((i) => [i.id, i.unitCostPence]));
   const { deductions, lineCosts } = computeDeductions(sold, recipeLines, costs, modifierLines);
   if (deductions.length === 0) return NOTHING;
 
@@ -113,15 +113,15 @@ export async function deductStockForOrder(
       change: new Prisma.Decimal(-d.quantity),
       reason: 'SALE' as const,
       referenceId: orderId,
-      unitCostPaise: d.unitCostPaise,
+      unitCostPence: d.unitCostPence,
       ...(at ? { createdAt: at } : {}),
     })),
   });
 
   await Promise.all(
     lineCosts
-      .filter((c) => c.recipeCostPaise !== null)
-      .map((c) => tx.orderItem.update({ where: { id: c.orderItemId }, data: { recipeCostPaise: c.recipeCostPaise } })),
+      .filter((c) => c.recipeCostPence !== null)
+      .map((c) => tx.orderItem.update({ where: { id: c.orderItemId }, data: { recipeCostPence: c.recipeCostPence } })),
   );
 
   // Which ingredients are now at or below their reorder level because of this bill?

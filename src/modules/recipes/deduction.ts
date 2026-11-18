@@ -33,13 +33,13 @@ export interface Deduction {
   itemId: string;
   /** Positive amount to take out of stock, to 4 decimals */
   quantity: number;
-  unitCostPaise: number;
+  unitCostPence: number;
 }
 
 export interface LineCost {
   orderItemId: string;
   /** null when the dish has no recipe */
-  recipeCostPaise: number | null;
+  recipeCostPence: number | null;
 }
 
 export interface DeductionResult {
@@ -62,7 +62,7 @@ interface IngredientUse {
 export function computeDeductions(
   sold: SoldLine[],
   recipeLines: RecipeLineInput[],
-  unitCostPaiseByItem: Record<string, number>,
+  unitCostPenceByItem: Record<string, number>,
   modifierRecipeLines: ModifierRecipeLineInput[] = [],
 ): DeductionResult {
   const linesByMenuItem = new Map<string, IngredientUse[]>();
@@ -89,7 +89,7 @@ export function computeDeductions(
       ...(s.modifierIds ?? []).flatMap((id) => linesByModifier.get(id) ?? []),
     ];
     if (recipe.length === 0) {
-      lineCosts.push({ orderItemId: s.orderItemId, recipeCostPaise: null });
+      lineCosts.push({ orderItemId: s.orderItemId, recipeCostPence: null });
       continue;
     }
     if (s.quantity <= 0) continue;
@@ -98,16 +98,16 @@ export function computeDeductions(
     for (const l of recipe) {
       const amount = perPortion(l);
       totals.set(l.itemId, (totals.get(l.itemId) ?? 0) + amount * s.quantity);
-      portionCost += amount * (unitCostPaiseByItem[l.itemId] ?? 0);
+      portionCost += amount * (unitCostPenceByItem[l.itemId] ?? 0);
     }
-    lineCosts.push({ orderItemId: s.orderItemId, recipeCostPaise: Math.round(portionCost * s.quantity) });
+    lineCosts.push({ orderItemId: s.orderItemId, recipeCostPence: Math.round(portionCost * s.quantity) });
   }
 
   const deductions: Deduction[] = [];
   for (const [itemId, total] of totals) {
     const quantity = round4(total);
     if (quantity <= 0) continue;
-    deductions.push({ itemId, quantity, unitCostPaise: unitCostPaiseByItem[itemId] ?? 0 });
+    deductions.push({ itemId, quantity, unitCostPence: unitCostPenceByItem[itemId] ?? 0 });
   }
   return { deductions, lineCosts };
 }

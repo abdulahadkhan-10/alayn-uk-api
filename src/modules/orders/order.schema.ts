@@ -7,10 +7,10 @@ const selectedModifierSchema = z.object({
 
 const paymentMethodSchema = z.enum(['CARD', 'CASH', 'DELIVEROO', 'UBER_EATS', 'JUST_EAT']);
 
-// One part of a split or settlement payment. Amounts are integer paise so no pound fractions are lost in transit.
+// One part of a split or settlement payment. Amounts are integer pence so no pound fractions are lost in transit.
 const splitPaymentSchema = z.object({
   method: paymentMethodSchema,
-  amountPaise: z.number().int().positive(),
+  amountPence: z.number().int().positive(),
   reference: z.string().trim().max(64).optional(),
   // Cashier confirmed an online (card / partner) payment was received
   verified: z.boolean().optional(),
@@ -56,7 +56,7 @@ export const updateOrderStatusSchema = z.object({
   couponCode: z.string().optional(),
   couponId: z.string().uuid().optional(),
   discountAmount: z.number().nonnegative().optional(),
-  discountPaise: z.number().int().nonnegative().optional(),
+  discountPence: z.number().int().nonnegative().optional(),
 });
 
 // Remove (waive = true) or restore the voluntary service charge on an open dine-in bill
@@ -66,7 +66,7 @@ export const serviceChargeWaiverSchema = z.object({
 });
 
 export const createPaymentSchema = z.object({
-  amountPaise: z.number().int().positive(),
+  amountPence: z.number().int().positive(),
   method: paymentMethodSchema,
   status: z.enum(['PENDING', 'CONFIRMED', 'FAILED']).default('CONFIRMED'),
 });

@@ -63,7 +63,7 @@ export class AnalyticsRepository {
         ...(outletIds ? { outletId: { in: outletIds } } : {}),
       },
       _sum: {
-        subtotalPaise: true,
+        subtotalPence: true,
       },
       _count: {
         id: true,
@@ -79,7 +79,7 @@ export class AnalyticsRepository {
           outletId: item.outletId,
           outletName: outlet ? outlet.name : 'Unknown Outlet',
           totalCompletedOrders: item._count.id,
-          totalSalesPaise: item._sum.subtotalPaise || 0,
+          totalSalesPence: item._sum.subtotalPence || 0,
         };
       })
     );
@@ -90,15 +90,15 @@ export class AnalyticsRepository {
   async getReports(outletId: string, startDate: Date, endDate: Date) {
     const dailySummaries = await this.getDailySummaries(outletId, startDate, endDate);
 
-    const totalSales = dailySummaries.reduce((sum, s) => sum + s.grossSalesPaise, 0);
-    const totalCOGS = dailySummaries.reduce((sum, s) => sum + s.cogsPaise, 0);
-    const totalProfit = dailySummaries.reduce((sum, s) => sum + s.grossProfitPaise, 0);
+    const totalSales = dailySummaries.reduce((sum, s) => sum + s.grossSalesPence, 0);
+    const totalCOGS = dailySummaries.reduce((sum, s) => sum + s.cogsPence, 0);
+    const totalProfit = dailySummaries.reduce((sum, s) => sum + s.grossProfitPence, 0);
     const totalOrders = dailySummaries.reduce((sum, s) => sum + s.orderCount, 0);
 
     return {
-      totalSalesPaise: totalSales,
+      totalSalesPence: totalSales,
       totalCOGSMinutes: totalCOGS,
-      totalProfitPaise: totalProfit,
+      totalProfitPence: totalProfit,
       totalOrders,
       daysAnalysed: dailySummaries.length,
       summaries: dailySummaries,

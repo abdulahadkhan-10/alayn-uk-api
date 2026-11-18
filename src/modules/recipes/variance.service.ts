@@ -36,7 +36,7 @@ export class VarianceService {
     const [items, balances, rows, recipeRows, modifierRecipeRows] = await Promise.all([
       prisma.item.findMany({
         where: { outletId: outlet, deletedAt: null },
-        select: { id: true, name: true, unit: true, unitCostPaise: true },
+        select: { id: true, name: true, unit: true, unitCostPence: true },
       }),
       prisma.stockLedgerEntry.groupBy({ by: ['itemId'], where: { outletId: outlet }, _sum: { change: true } }),
       // Everything since the start of the period, to now: balances are worked back from today's stock
@@ -70,7 +70,7 @@ export class VarianceService {
         itemId: item.id,
         name: item.name,
         unit: item.unit,
-        unitCostPaise: item.unitCostPaise,
+        unitCostPence: item.unitCostPence,
         // False for an ingredient no recipe uses: all its use shows as "unexplained", which says nothing about loss
         inRecipes: inRecipes.has(item.id),
         measuredFrom: v.from,
@@ -79,10 +79,10 @@ export class VarianceService {
         soldTheoretical: v.soldTheoretical,
         wasteLogged: v.wasteLogged,
         variance: v.variance,
-        variancePaise: Math.round(v.variance * item.unitCostPaise),
+        variancePence: Math.round(v.variance * item.unitCostPence),
       });
     }
-    measured.sort((a, b) => Math.abs(b.variancePaise) - Math.abs(a.variancePaise));
+    measured.sort((a, b) => Math.abs(b.variancePence) - Math.abs(a.variancePence));
 
     const comparable = measured.filter((m) => m.inRecipes);
     return {
@@ -91,8 +91,8 @@ export class VarianceService {
       to,
       items: measured,
       notMeasured,
-      totalVariancePaise: comparable.reduce((s, m) => s + m.variancePaise, 0),
-      totalLossPaise: comparable.filter((m) => m.variancePaise > 0).reduce((s, m) => s + m.variancePaise, 0),
+      totalVariancePence: comparable.reduce((s, m) => s + m.variancePence, 0),
+      totalLossPence: comparable.filter((m) => m.variancePence > 0).reduce((s, m) => s + m.variancePence, 0),
     };
   }
 }

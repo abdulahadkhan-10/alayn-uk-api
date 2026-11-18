@@ -95,8 +95,8 @@ export class NotificationService {
    * Helper: Order Placed -> Notify Kitchen
    * (Managers see orders on the orders screen; a bell alert per order was just noise.)
    */
-  static async notifyOrderPlaced(order: { id: string; orderNumber?: string | null; totalPaise: number; outletId: string; businessId?: string }, skipEmit = false) {
-    const formattedAmount = (order.totalPaise / 100).toFixed(2);
+  static async notifyOrderPlaced(order: { id: string; orderNumber?: string | null; totalPence: number; outletId: string; businessId?: string }, skipEmit = false) {
+    const formattedAmount = (order.totalPence / 100).toFixed(2);
     const orderRef = order.orderNumber || order.id.slice(0, 8);
     
     // Notify Kitchen
@@ -124,13 +124,13 @@ export class NotificationService {
       tableNumber?: number | null;
       outletId: string;
       businessId?: string;
-      amountPaise: number;
+      amountPence: number;
       method: 'CARD' | 'CASH';
       reference?: string | null;
     },
     skipEmit = false
   ) {
-    const amount = `£${(bill.amountPaise / 100).toFixed(2)}`;
+    const amount = `£${(bill.amountPence / 100).toFixed(2)}`;
     const where = bill.tableNumber ? `Table ${bill.tableNumber}` : `Order #${bill.orderNumber || bill.id.slice(0, 8)}`;
     const message =
       `Will pay ${amount} by ${bill.method === 'CARD' ? 'card' : 'cash'} at the counter. Print the bill and collect.`;
@@ -145,7 +145,7 @@ export class NotificationService {
         type: 'BILL_REQUESTED',
         entityType: 'ORDER',
         entityId: bill.id,
-        metadata: { orderId: bill.id, tableNumber: bill.tableNumber, method: bill.method, amountPaise: bill.amountPaise },
+        metadata: { orderId: bill.id, tableNumber: bill.tableNumber, method: bill.method, amountPence: bill.amountPence },
         skipEmit,
       });
     }
@@ -209,9 +209,9 @@ export class NotificationService {
   /**
    * Helper: Purchase Order Status Changed -> Notify Supplier / Manager / Business Owner
    */
-  static async notifyPOStatusChanged(po: { id: string; poNumber: string; supplierId: string; supplierUserId?: string | null; status: string; totalAmountPaise: number; outletId: string; businessId?: string }, skipEmit = false) {
+  static async notifyPOStatusChanged(po: { id: string; poNumber: string; supplierId: string; supplierUserId?: string | null; status: string; totalAmountPence: number; outletId: string; businessId?: string }, skipEmit = false) {
     const poRef = po.poNumber;
-    const formattedAmount = (po.totalAmountPaise / 100).toFixed(2);
+    const formattedAmount = (po.totalAmountPence / 100).toFixed(2);
 
     if (po.status === 'SENT') {
       const targetRooms = [`supplier:${po.supplierId}`];
@@ -388,8 +388,8 @@ export class NotificationService {
   /**
    * Helper: High Waste Logged -> Notify Manager & BO Manager
    */
-  static async notifyHighWasteLogged(waste: { id: string; itemName: string; quantity: string | number; costPaise: number; outletId: string; businessId?: string }, skipEmit = false) {
-    const formattedCost = (waste.costPaise / 100).toFixed(2);
+  static async notifyHighWasteLogged(waste: { id: string; itemName: string; quantity: string | number; costPence: number; outletId: string; businessId?: string }, skipEmit = false) {
+    const formattedCost = (waste.costPence / 100).toFixed(2);
     
     await this.createAndEmit({
       outletId: waste.outletId,
@@ -400,7 +400,7 @@ export class NotificationService {
       type: 'HIGH_WASTE_LOGGED',
       entityType: 'WASTE',
       entityId: waste.id,
-      metadata: { itemName: waste.itemName, costPaise: waste.costPaise },
+      metadata: { itemName: waste.itemName, costPence: waste.costPence },
       skipEmit,
     });
 
@@ -494,7 +494,7 @@ export class NotificationService {
               supplierId: po.supplierId,
               supplierUserId: po.actualSupplier?.userId,
               status: po.status,
-              totalAmountPaise: po.totalAmountPaise,
+              totalAmountPence: po.totalAmountPence,
               outletId: po.outletId,
             },
             true // skipEmit = true (silent DB sync)

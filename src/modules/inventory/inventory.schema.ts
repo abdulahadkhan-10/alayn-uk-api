@@ -6,7 +6,7 @@ export const createItemSchema = z.object({
   category: z.string().min(1),
   unit: z.string().min(1),
   reorderThreshold: z.number().nonnegative(),
-  unitCostPaise: z.number().int().positive(),
+  unitCostPence: z.number().int().positive(),
   currentStock: z.number().nonnegative().optional(),
   outletId: z.string().optional(),
 });
@@ -22,5 +22,5 @@ export const stockCountSchema = z.object({
 export const adjustStockSchema = z.object({
   change: z.number(), // Positive or negative
   reason: z.enum(['PURCHASE', 'WASTE', 'SALE', 'ADJUSTMENT']).default('ADJUSTMENT'),
-  unitCostPaise: z.number().int().nonnegative().optional(), // Optional purchase cost for incoming stock
+  unitCostPence: z.number().int().nonnegative().optional(), // Optional purchase cost for incoming stock
 });

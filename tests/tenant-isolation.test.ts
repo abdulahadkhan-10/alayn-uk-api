@@ -227,7 +227,7 @@ describe('17d — creating stock never lands in someone else\'s branch', () => {
     (prisma.supplier.findFirst as jest.Mock).mockResolvedValue({ id: 'sup-1', outletId: CHAI_POINT_ANDHERI });
     (prisma.item.findFirst as jest.Mock).mockResolvedValue(null);
     await expect(
-      new PurchaseOrderService().createPO(CHAI_POINT_ANDHERI, 'sup-1', [{ itemId: 'brew-bay-milk', orderedQuantity: 1, unitCostPaise: 100 }], CHAI_POINT)
+      new PurchaseOrderService().createPO(CHAI_POINT_ANDHERI, 'sup-1', [{ itemId: 'brew-bay-milk', orderedQuantity: 1, unitCostPence: 100 }], CHAI_POINT)
     ).rejects.toMatchObject({ code: 'ITEM_NOT_FOUND' });
     expect((prisma.item.findFirst as jest.Mock).mock.calls[0][0].where.outletId).toBe(CHAI_POINT_ANDHERI);
   });

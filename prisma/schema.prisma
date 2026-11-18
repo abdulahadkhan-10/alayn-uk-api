@@ -274,7 +274,7 @@ model OutletSubscription {
   status             OutletSubscriptionStatus @default(PENDING_PAYMENT)
   planCode           String                   @default("MONTHLY_STANDARD")
   planName           String                   @default("Monthly Pro Plan")
-  monthlyFeePaise    Int                      @default(199900)
+  monthlyFeePence    Int                      @default(199900)
   taxRatePercent     Decimal                  @default(20.0) @db.Decimal(5, 2)
   currency           String                   @default("GBP")
   currentPeriodStart DateTime                 @default(now())
@@ -298,8 +298,8 @@ model SubscriptionPayment {
   businessId           String                    @db.Uuid
   cfOrderId            String                    @unique
   cfPaymentId          String?
-  amountPaise          Int
-  taxAmountPaise       Int                       @default(0)
+  amountPence          Int
+  taxAmountPence       Int                       @default(0)
   currency             String                    @default("GBP")
   paymentStatus        SubscriptionPaymentStatus @default(PENDING)
   paymentMethod        String?                   // e.g. "CARD", "BANK_TRANSFER"
@@ -312,7 +312,7 @@ model SubscriptionPayment {
 
   couponId             String?                   @db.Uuid
   couponCode           String?
-  discountAmountPaise  Int                       @default(0)
+  discountAmountPence  Int                       @default(0)
   billingMonths        Int                       @default(1)
 
   coupon               Coupon?                   @relation(fields: [couponId], references: [id], onDelete: SetNull)
@@ -608,7 +608,7 @@ model Item {
   category         String
   unit             String
   reorderThreshold Decimal   @db.Decimal(12, 4)
-  unitCostPaise    Int
+  unitCostPence    Int
   outletId         String    @db.Uuid
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -632,7 +632,7 @@ model StockBatch {
   quantity      Decimal   @db.Decimal(12, 4)
   expiryDate    DateTime
   batchNumber   String
-  unitCostPaise Int
+  unitCostPence Int
   outletId      String    @db.Uuid
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -649,7 +649,7 @@ model StockLedgerEntry {
   change      Decimal     @db.Decimal(12, 4)
   reason      StockReason
   referenceId String?     // e.g. PO ID, Order ID, WasteLog ID
-  unitCostPaise Int?      // item cost per unit when this movement happened (set for recipe-based sales)
+  unitCostPence Int?      // item cost per unit when this movement happened (set for recipe-based sales)
   outletId    String      @db.Uuid
   createdAt   DateTime    @default(now())
 
@@ -731,7 +731,7 @@ model SupplierItem {
   sku           String?
   category      String
   unit          String
-  pricePaise    Int
+  pricePence    Int
   minOrderQty   Decimal   @default(1) @db.Decimal(12, 4)
   inStock       Boolean   @default(true)
   leadTimeHours Int       @default(24) // SLA
@@ -757,7 +757,7 @@ model PurchaseOrder {
   clientRequestId          String?           @unique
   supplierId               String            @db.Uuid
   status                   POStatus          @default(DRAFT)
-  totalAmountPaise         Int
+  totalAmountPence         Int
   supplierNotes            String?
   dispatchDate             DateTime?
   expectedNextDeliveryDate DateTime?
@@ -784,7 +784,7 @@ model PurchaseOrderItem {
   dispatchedQuantity Decimal  @default(0) @db.Decimal(12, 4)
   receivedQuantity   Decimal  @default(0) @db.Decimal(12, 4)
   damagedQuantity    Decimal  @default(0) @db.Decimal(12, 4)
-  unitCostPaise      Int
+  unitCostPence      Int
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -829,7 +829,7 @@ model MenuItem {
   name        String
   description String
   imageUrl    String?
-  pricePaise  Int
+  pricePence  Int
   categoryId  String    @db.Uuid
   isVeg       Boolean      @default(true)
   dietaryType DietaryType  @default(VEG)
@@ -905,13 +905,13 @@ model Order {
   tableNumber   Int?
   source        OrderSource
   status        OrderStatus @default(SENT_TO_KITCHEN)
-  subtotalPaise Int
-  vatPaise        Int         @default(0) // VAT on this bill (inside the total: prices include VAT)
-  serviceTaxPaise Int         @default(0) // Service CHARGE amount (dine-in, voluntary) — historical column name
-  taxPaise        Int                     // VAT + service charge (kept for compatibility)
-  totalPaise    Int
-  discountPaise   Int         @default(0)
-  roundOffPaise   Int         @default(0) // Rounding adjustment (bills are not currently rounded)
+  subtotalPence Int
+  vatPence        Int         @default(0) // VAT on this bill (inside the total: prices include VAT)
+  serviceTaxPence Int         @default(0) // Service CHARGE amount (dine-in, voluntary) — historical column name
+  taxPence        Int                     // VAT + service charge (kept for compatibility)
+  totalPence    Int
+  discountPence   Int         @default(0)
+  roundOffPence   Int         @default(0) // Rounding adjustment (bills are not currently rounded)
   // Rates used for this bill (snapshot), so receipts never change when outlet settings change
   vatRate           Decimal?  @db.Decimal(5, 2)
   serviceChargeRate Decimal?  @db.Decimal(5, 2)
@@ -952,8 +952,8 @@ model OrderItem {
   orderId        String      @db.Uuid
   menuItemId     String      @db.Uuid
   quantity       Int
-  unitPricePaise Int
-  subtotalPaise  Int
+  unitPricePence Int
+  subtotalPence  Int
   notes          String?
   modifiersJson  String?
   status         OrderStatus @default(SENT_TO_KITCHEN)
@@ -963,7 +963,7 @@ model OrderItem {
   cancelledAt         DateTime?
   cancelledFromStatus OrderStatus? // kitchen stage the item was in when fully removed
   // Ingredient cost of this line when the bill was settled (recipe cost x quantity); null when the dish has no recipe
-  recipeCostPaise     Int?
+  recipeCostPence     Int?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
@@ -981,7 +981,7 @@ model OrderItemRemoval {
   outletId      String      @db.Uuid
   itemName      String      // as it was named when removed
   quantity      Int
-  amountPaise   Int         // quantity x unit price, before tax
+  amountPence   Int         // quantity x unit price, before tax
   reason        String
   itemStage     OrderStatus // where the item was: still in the kitchen, or already served
   removedById   String?     @db.Uuid
@@ -1009,7 +1009,7 @@ model OrderStatusHistory {
 model Payment {
   id          String        @id @default(uuid()) @db.Uuid
   orderId     String        @db.Uuid
-  amountPaise Int
+  amountPence Int
   method      PaymentMethod
   status      PaymentStatus @default(PENDING)
   // Card approval code, when the cashier noted one
@@ -1037,8 +1037,8 @@ model WasteLog {
   id                     String          @id @default(uuid()) @db.Uuid
   itemId                 String          @db.Uuid
   quantity               Decimal         @db.Decimal(12, 4)
-  unitCostAtLoggingPaise Int?            // Rate in paise at time of loss (e.g. 11000 = £110/kg)
-  costAtLoggingPaise     Int             // Total loss in paise (e.g. 33000 = £330)
+  unitCostAtLoggingPence Int?            // Rate in pence at time of loss (e.g. 11000 = £110/kg)
+  costAtLoggingPence     Int             // Total loss in pence (e.g. 33000 = £330)
   reason                 WasteReasonType
   notes                  String?         // Incident explanation
   loggedById             String          @db.Uuid // User ID
@@ -1054,9 +1054,9 @@ model WasteLog {
 model DailySalesSummary {
   id                String   @id @default(uuid()) @db.Uuid
   date              DateTime @db.Date
-  grossSalesPaise   Int
-  cogsPaise         Int
-  grossProfitPaise  Int
+  grossSalesPence   Int
+  cogsPence         Int
+  grossProfitPence  Int
   orderCount        Int
   itemBreakdownJson String   // JSON details: { [menuItemId]: quantity }
   outletId          String   @db.Uuid
@@ -1208,8 +1208,8 @@ model RestaurantCoupon {
   description      String?
   discountType     DiscountType  @default(PERCENTAGE)
   discountValue    Decimal       @db.Decimal(10, 2)
-  minOrderPaise    Int?
-  maxDiscountPaise Int?
+  minOrderPence    Int?
+  maxDiscountPence Int?
   isActive         Boolean       @default(true)
   expiresAt        DateTime?
   usageLimit       Int?
@@ -1255,7 +1255,7 @@ model ModifierItem {
   id          String        @id @default(uuid()) @db.Uuid
   groupId     String        @db.Uuid
   name        String        // e.g. "Extra Butter", "Extra Cheese", "Half", "Full"
-  pricePaise  Int           @default(0) // 2000 = £20.00
+  pricePence  Int           @default(0) // 2000 = £20.00
   isVeg       Boolean       @default(true)
   dietaryType DietaryType   @default(VEG)
   isActive    Boolean       @default(true)

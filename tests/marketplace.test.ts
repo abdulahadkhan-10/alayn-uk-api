@@ -26,8 +26,8 @@ function mockGroupBy(pageIds: string[]) {
     }
     if (by === 'supplierId') {
       return Promise.resolve([
-        { supplierId: 'sup-a', _min: { pricePaise: 6000 } },
-        { supplierId: 'sup-b', _min: { pricePaise: 20000 } },
+        { supplierId: 'sup-a', _min: { pricePence: 6000 } },
+        { supplierId: 'sup-b', _min: { pricePence: 20000 } },
       ]);
     }
     if (by === 'supplierId,category') {
@@ -78,22 +78,22 @@ describe('Marketplace supplier paging', () => {
 
   it('puts the cheapest supplier for the searched product first', async () => {
     p.supplierItem.findMany.mockResolvedValue([
-      { id: 'i1', supplierId: 'sup-b', name: 'Chicken', unit: 'kg', pricePaise: 20000, inStock: true },
-      { id: 'i2', supplierId: 'sup-b', name: 'Chicken Breast', unit: 'kg', pricePaise: 32000, inStock: true },
-      { id: 'i3', supplierId: 'sup-b', name: 'Chicken Wings', unit: 'kg', pricePaise: 34000, inStock: true },
-      { id: 'i4', supplierId: 'sup-b', name: 'Chicken Mince', unit: 'kg', pricePaise: 36000, inStock: false },
+      { id: 'i1', supplierId: 'sup-b', name: 'Chicken', unit: 'kg', pricePence: 20000, inStock: true },
+      { id: 'i2', supplierId: 'sup-b', name: 'Chicken Breast', unit: 'kg', pricePence: 32000, inStock: true },
+      { id: 'i3', supplierId: 'sup-b', name: 'Chicken Wings', unit: 'kg', pricePence: 34000, inStock: true },
+      { id: 'i4', supplierId: 'sup-b', name: 'Chicken Mince', unit: 'kg', pricePence: 36000, inStock: false },
     ]);
 
     const page = await new SupplierService().getMarketplaceSuppliers(query({ search: ' chicken ' }));
 
     const pagingCall = p.supplierItem.groupBy.mock.calls.find((c: any[]) => c[0].skip !== undefined)[0];
-    expect(pagingCall.orderBy[0]).toEqual({ _min: { pricePaise: 'asc' } });
+    expect(pagingCall.orderBy[0]).toEqual({ _min: { pricePence: 'asc' } });
     expect(JSON.stringify(pagingCall.where)).toContain('"contains":"chicken"');
 
     expect(page.suppliers[0].supplier.id).toBe('sup-b');
     expect(page.suppliers[0].matchedItems).toHaveLength(3);
     expect(page.suppliers[0].matchedCount).toBe(4);
-    expect(page.suppliers[0].minPricePaise).toBe(20000);
+    expect(page.suppliers[0].minPricePence).toBe(20000);
   });
 
   it('sorts by delivery time when asked', async () => {

@@ -82,7 +82,7 @@ export class OrderController {
         couponCode,
         couponId,
         discountAmount,
-        discountPaise,
+        discountPence,
         payments,
         idempotencyKey,
         allowDuplicateReference,
@@ -105,7 +105,7 @@ export class OrderController {
           couponCode,
           couponId,
           discountAmount,
-          discountPaise,
+          discountPence,
         },
         { payments, idempotencyKey, allowDuplicateReference }
       );

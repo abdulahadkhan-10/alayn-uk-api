@@ -31,7 +31,7 @@ export class InventoryController {
     try {
       const outletId = req.outletId!;
       const { id } = req.params;
-      const { change, reason, unitCostPaise } = req.body;
+      const { change, reason, unitCostPence } = req.body;
       const loggedById = req.user?.id;
       const result = await this.inventoryService.adjustStock(
         outletId,
@@ -41,7 +41,7 @@ export class InventoryController {
         undefined,
         loggedById,
         req.user?.businessId,
-        unitCostPaise
+        unitCostPence
       );
       return sendSuccess(res, result, 201);
     } catch (error) {

@@ -7,7 +7,7 @@ export const createPOSchema = z.object({
   items: z.array(z.object({
     itemId: z.string().uuid(),
     orderedQuantity: z.number().positive(),
-    unitCostPaise: z.number().int().positive(),
+    unitCostPence: z.number().int().positive(),
   })).min(1),
 });
 

@@ -75,9 +75,9 @@ export class RestaurantCouponController {
       }
 
       const { code } = req.body;
-      const subtotalPaise = req.body.subtotalPaise ?? (req.body.subtotalAmount ? Math.round(req.body.subtotalAmount * 100) : 0);
+      const subtotalPence = req.body.subtotalPence ?? (req.body.subtotalAmount ? Math.round(req.body.subtotalAmount * 100) : 0);
 
-      const result = await this.service.validateCoupon(businessId, outletId, code, subtotalPaise);
+      const result = await this.service.validateCoupon(businessId, outletId, code, subtotalPence);
       return sendSuccess(res, result);
     } catch (error) {
       next(error);

@@ -61,8 +61,8 @@ export class PurchaseOrderRepository {
     outletId: string,
     supplierId: string,
     poNumber: string,
-    totalAmountPaise: number,
-    items: { itemId: string; orderedQuantity: number; unitCostPaise: number }[],
+    totalAmountPence: number,
+    items: { itemId: string; orderedQuantity: number; unitCostPence: number }[],
     clientRequestId: string | undefined,
     client: Prisma.TransactionClient = prisma
   ) {
@@ -73,12 +73,12 @@ export class PurchaseOrderRepository {
         poNumber,
         clientRequestId,
         status: 'SENT',
-        totalAmountPaise,
+        totalAmountPence,
         items: {
           create: items.map(item => ({
             itemId: item.itemId,
             orderedQuantity: new Prisma.Decimal(item.orderedQuantity),
-            unitCostPaise: item.unitCostPaise,
+            unitCostPence: item.unitCostPence,
           })),
         },
       },

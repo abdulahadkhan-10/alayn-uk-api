@@ -14,7 +14,7 @@ const removal = (overrides: Record<string, unknown>) => ({
   outletId: 'outlet-1',
   itemName: 'Chicken Chilly',
   quantity: 1,
-  amountPaise: 24_000,
+  amountPence: 24_000,
   reason: 'Customer didn\'t order (wrongly punched)',
   itemStage: 'PREPARING',
   removedById: 'ravi',
@@ -33,7 +33,7 @@ describe('removed items report', () => {
     (prisma.outlet.findMany as jest.Mock).mockResolvedValue([{ id: 'outlet-1', name: 'Bandra' }]);
     (prisma.orderItemRemoval.findMany as jest.Mock).mockResolvedValue([
       removal({ id: 'r1' }),
-      removal({ id: 'r2', itemName: 'Dum Biryani (Half)', quantity: 2, amountPaise: 60_000, itemStage: 'SERVED', reason: 'Other reason: customer refused to pay' }),
+      removal({ id: 'r2', itemName: 'Dum Biryani (Half)', quantity: 2, amountPence: 60_000, itemStage: 'SERVED', reason: 'Other reason: customer refused to pay' }),
       removal({ id: 'r3', removedById: 'asha', removedByName: 'Asha', removedByRole: 'MANAGER', reason: 'Customer didn\'t order (wrongly punched): table 4 not 1' }),
     ]);
   });
@@ -57,9 +57,9 @@ describe('removed items report', () => {
     expect(report.totals).toEqual({
       removals: 3,
       quantity: 4,
-      amountPaise: 108_000,
+      amountPence: 108_000,
       afterServedRemovals: 1,
-      afterServedPaise: 60_000,
+      afterServedPence: 60_000,
     });
   });
 
@@ -67,8 +67,8 @@ describe('removed items report', () => {
     const report = await buildRemovedItemsReport(request, ['outlet-1'], now);
 
     expect(report.byPerson).toEqual([
-      { key: 'ravi', name: 'Ravi', role: 'STAFF', removals: 2, quantity: 3, amountPaise: 84_000 },
-      { key: 'asha', name: 'Asha', role: 'MANAGER', removals: 1, quantity: 1, amountPaise: 24_000 },
+      { key: 'ravi', name: 'Ravi', role: 'STAFF', removals: 2, quantity: 3, amountPence: 84_000 },
+      { key: 'asha', name: 'Asha', role: 'MANAGER', removals: 1, quantity: 1, amountPence: 24_000 },
     ]);
   });
 
@@ -76,8 +76,8 @@ describe('removed items report', () => {
     const report = await buildRemovedItemsReport(request, ['outlet-1'], now);
 
     expect(report.byReason).toEqual([
-      { reason: 'Other reason', removals: 1, quantity: 2, amountPaise: 60_000 },
-      { reason: 'Customer didn\'t order (wrongly punched)', removals: 2, quantity: 2, amountPaise: 48_000 },
+      { reason: 'Other reason', removals: 1, quantity: 2, amountPence: 60_000 },
+      { reason: 'Customer didn\'t order (wrongly punched)', removals: 2, quantity: 2, amountPence: 48_000 },
     ]);
   });
 

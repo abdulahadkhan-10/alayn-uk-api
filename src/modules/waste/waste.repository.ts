@@ -30,9 +30,9 @@ export class WasteRepository {
       return {
         ...log,
         quantity: qtyNum,
-        unitCostAtLoggingPaise:
-          log.unitCostAtLoggingPaise ??
-          (qtyNum > 0 ? Math.round(log.costAtLoggingPaise / qtyNum) : 0),
+        unitCostAtLoggingPence:
+          log.unitCostAtLoggingPence ??
+          (qtyNum > 0 ? Math.round(log.costAtLoggingPence / qtyNum) : 0),
         notes: log.notes ?? null,
         item: itemMap.get(log.itemId) || null,
       };
@@ -53,7 +53,7 @@ export class WasteRepository {
       where: groupWhere,
       _sum: {
         quantity: true,
-        costAtLoggingPaise: true,
+        costAtLoggingPence: true,
       },
       _count: {
         id: true,
@@ -65,21 +65,21 @@ export class WasteRepository {
     const currentMonthAggregate = await prisma.wasteLog.aggregate({
       where: currentMonthWhere,
       _sum: {
-        costAtLoggingPaise: true,
+        costAtLoggingPence: true,
       },
     });
 
-    const currentMonthWastePaise = currentMonthAggregate._sum.costAtLoggingPaise || 0;
+    const currentMonthWastePence = currentMonthAggregate._sum.costAtLoggingPence || 0;
 
     const byReason = aggregate.map((group) => ({
       reason: group.reason,
       count: group._count.id,
       totalQuantity: group._sum.quantity ? group._sum.quantity.toNumber() : 0,
-      totalCostPaise: group._sum.costAtLoggingPaise || 0,
+      totalCostPence: group._sum.costAtLoggingPence || 0,
     }));
 
     return {
-      currentMonthWastePaise,
+      currentMonthWastePence,
       byReason,
     };
   }

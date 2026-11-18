@@ -143,7 +143,7 @@ export class TicketRepository {
                   id: true,
                   orderNumber: true,
                   tableNumber: true,
-                  totalPaise: true,
+                  totalPence: true,
                 },
               },
             },

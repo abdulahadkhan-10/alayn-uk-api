@@ -28,57 +28,57 @@ const RATES = { vatRate: 20, serviceChargeRate: 10 };
 
 // Table 1: Chicken Burger £12 + Fries £4. Menu prices include VAT.
 const TABLE_1_ITEMS = [
-  { unitPricePaise: 1_200, quantity: 1 },
-  { unitPricePaise: 400, quantity: 1 },
+  { unitPricePence: 1_200, quantity: 1 },
+  { unitPricePence: 400, quantity: 1 },
 ];
 
 describe('calculateBill — the single bill calculation (prices include VAT)', () => {
   it('Table 1: VAT is the part of the price already paid; service charge is added on top', () => {
     const bill = calculateBill(TABLE_1_ITEMS, RATES, { dineIn: true });
     expect(bill).toMatchObject({
-      subtotalPaise: 1_600,
-      vatPaise: 267, // £16 × 20/120 = £2.67
-      netOfVatPaise: 1_333,
-      serviceChargePaise: 160, // 10% of £16
-      roundOffPaise: 0,
-      totalPaise: 1_760, // £16 + £1.60 service charge (no VAT on a voluntary service charge)
+      subtotalPence: 1_600,
+      vatPence: 267, // £16 × 20/120 = £2.67
+      netOfVatPence: 1_333,
+      serviceChargePence: 160, // 10% of £16
+      roundOffPence: 0,
+      totalPence: 1_760, // £16 + £1.60 service charge (no VAT on a voluntary service charge)
     });
   });
 
   it('no service charge on counter / takeaway orders, and the total is the menu price', () => {
     const bill = calculateBill(TABLE_1_ITEMS, RATES, { dineIn: false });
-    expect(bill.serviceChargePaise).toBe(0);
-    expect(bill.vatPaise).toBe(267);
-    expect(bill.totalPaise).toBe(1_600);
+    expect(bill.serviceChargePence).toBe(0);
+    expect(bill.vatPence).toBe(267);
+    expect(bill.totalPence).toBe(1_600);
     expect(bill.appliedRates.serviceChargeRate).toBe(0);
   });
 
   it('removes the service charge when the customer declines it', () => {
     const bill = calculateBill(TABLE_1_ITEMS, RATES, { dineIn: true, serviceChargeWaived: true });
-    expect(bill.serviceChargePaise).toBe(0);
-    expect(bill.totalPaise).toBe(1_600);
+    expect(bill.serviceChargePence).toBe(0);
+    expect(bill.totalPence).toBe(1_600);
   });
 
   it('outlets that are not VAT-registered show no VAT; the price is unchanged', () => {
     const bill = calculateBill(TABLE_1_ITEMS, RATES, { dineIn: true, vatRegistered: false });
-    expect(bill.vatPaise).toBe(0);
+    expect(bill.vatPence).toBe(0);
     expect(bill.appliedRates.vatRate).toBe(0);
-    expect(bill.serviceChargePaise).toBe(160);
-    expect(bill.totalPaise).toBe(1_760);
+    expect(bill.serviceChargePence).toBe(160);
+    expect(bill.totalPence).toBe(1_760);
   });
 
   it('rounds VAT to the nearest penny', () => {
     // £0.99 × 20/120 = 16.5p → 17p
-    expect(calculateBill([{ unitPricePaise: 99, quantity: 1 }], RATES, { dineIn: false }).vatPaise).toBe(17);
+    expect(calculateBill([{ unitPricePence: 99, quantity: 1 }], RATES, { dineIn: false }).vatPence).toBe(17);
     // £0.98 × 20/120 = 16.33p → 16p
-    expect(calculateBill([{ unitPricePaise: 98, quantity: 1 }], RATES, { dineIn: false }).vatPaise).toBe(16);
+    expect(calculateBill([{ unitPricePence: 98, quantity: 1 }], RATES, { dineIn: false }).vatPence).toBe(16);
   });
 
   it('applies a discount before service charge and VAT', () => {
-    const bill = calculateBill([{ unitPricePaise: 1_200, quantity: 1 }], RATES, { dineIn: true, discountPaise: 200 });
-    expect(bill.serviceChargePaise).toBe(100); // 10% of £10
-    expect(bill.vatPaise).toBe(167); // £10 × 20/120
-    expect(bill.totalPaise).toBe(1_100);
+    const bill = calculateBill([{ unitPricePence: 1_200, quantity: 1 }], RATES, { dineIn: true, discountPence: 200 });
+    expect(bill.serviceChargePence).toBe(100); // 10% of £10
+    expect(bill.vatPence).toBe(167); // £10 × 20/120
+    expect(bill.totalPence).toBe(1_100);
   });
 });
 
@@ -91,7 +91,7 @@ describe('OrderService bill lifecycle', () => {
     source: 'TABLE',
     status: 'SENT_TO_KITCHEN',
     tableNumber: 1,
-    discountPaise: 0,
+    discountPence: 0,
     serviceChargeWaived: false,
     // Snapshot taken when the bill was opened
     vatRate: dec(20),
@@ -112,12 +112,12 @@ describe('OrderService bill lifecycle', () => {
     await service.recalculateOrder('order-1');
     const saved = (prisma.order.update as jest.Mock).mock.calls[0][0].data;
     expect(saved).toMatchObject({
-      subtotalPaise: 1_600,
-      serviceTaxPaise: 160,
-      vatPaise: 267,
-      taxPaise: 267 + 160,
-      roundOffPaise: 0,
-      totalPaise: 1_760,
+      subtotalPence: 1_600,
+      serviceTaxPence: 160,
+      vatPence: 267,
+      taxPence: 267 + 160,
+      roundOffPence: 0,
+      totalPence: 1_760,
     });
     expect(Number(saved.vatRate)).toBe(20);
   });
@@ -128,8 +128,8 @@ describe('OrderService bill lifecycle', () => {
     );
     await service.recalculateOrder('order-1');
     const saved = (prisma.order.update as jest.Mock).mock.calls[0][0].data;
-    expect(saved.serviceTaxPaise).toBe(160);
-    expect(saved.vatPaise).toBe(267);
+    expect(saved.serviceTaxPence).toBe(160);
+    expect(saved.vatPence).toBe(267);
   });
 
   it('bills created before snapshots existed take the outlet rates once', async () => {
@@ -138,19 +138,19 @@ describe('OrderService bill lifecycle', () => {
     const saved = (prisma.order.update as jest.Mock).mock.calls[0][0].data;
     expect(Number(saved.serviceChargeRate)).toBe(10);
     expect(Number(saved.vatRate)).toBe(20);
-    expect(saved.totalPaise).toBe(1_760);
+    expect(saved.totalPence).toBe(1_760);
   });
 
   it('settlement records a payment for the final recalculated total', async () => {
     // findOrderById (old, wrongly-added amounts) → recalculation → payment of the correct total
-    (prisma.order.findFirst as jest.Mock).mockResolvedValue({ ...openTable1(), totalPaise: 1_700 });
+    (prisma.order.findFirst as jest.Mock).mockResolvedValue({ ...openTable1(), totalPence: 1_700 });
     (prisma.order.findUnique as jest.Mock).mockResolvedValue(openTable1());
 
     // Cash: card settles only with the cashier's "received" confirmation (tests/split-payment.test.ts)
     await service.updateOrderStatus('outlet-1', 'order-1', 'COMPLETED', undefined, 'user-1', 'CASH');
 
     expect(prisma.payment.create).toHaveBeenCalledWith({
-      data: { orderId: 'order-1', amountPaise: 1_760, method: 'CASH', status: 'CONFIRMED' },
+      data: { orderId: 'order-1', amountPence: 1_760, method: 'CASH', status: 'CONFIRMED' },
     });
   });
 
@@ -171,7 +171,7 @@ describe('OrderService bill lifecycle', () => {
         serviceChargeWaiveReason: 'Customer declined',
       });
       const recalculated = (prisma.order.update as jest.Mock).mock.calls[1][0].data;
-      expect(recalculated.serviceTaxPaise).toBe(0);
+      expect(recalculated.serviceTaxPence).toBe(0);
     });
 
     it('is refused on a settled bill', async () => {
@@ -202,7 +202,7 @@ describe('Dashboard: VAT collected excludes service charge', () => {
   it('reports VAT and service charge separately', async () => {
     (prisma.order.findMany as jest.Mock).mockImplementation(({ where }: any) =>
       where.status === 'COMPLETED' && where.createdAt.gte > new Date('2026-01-01')
-        ? [{ id: 'o1', subtotalPaise: 160_000, discountPaise: 0, vatPaise: 26_667, serviceTaxPaise: 16_000 }]
+        ? [{ id: 'o1', subtotalPence: 160_000, discountPence: 0, vatPence: 26_667, serviceTaxPence: 16_000 }]
         : []
     );
     const kpis: any = await new DashboardService().getKpis('outlet-1', 'biz-1', 'TODAY');

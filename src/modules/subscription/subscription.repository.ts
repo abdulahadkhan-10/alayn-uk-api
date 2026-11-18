@@ -47,7 +47,7 @@ export class SubscriptionRepository {
     status: OutletSubscriptionStatus;
     planCode?: string;
     planName?: string;
-    monthlyFeePaise?: number;
+    monthlyFeePence?: number;
     currentPeriodStart?: Date;
     currentPeriodEnd?: Date;
   }) {
@@ -62,7 +62,7 @@ export class SubscriptionRepository {
         status: data.status,
         planCode: data.planCode || 'MONTHLY_STANDARD',
         planName: data.planName || 'Monthly Pro Plan',
-        monthlyFeePaise: data.monthlyFeePaise || 7900,
+        monthlyFeePence: data.monthlyFeePence || 7900,
         currentPeriodStart: periodStart,
         currentPeriodEnd: periodEnd,
       },
@@ -70,7 +70,7 @@ export class SubscriptionRepository {
         status: data.status,
         ...(data.planCode && { planCode: data.planCode }),
         ...(data.planName && { planName: data.planName }),
-        ...(data.monthlyFeePaise && { monthlyFeePaise: data.monthlyFeePaise }),
+        ...(data.monthlyFeePence && { monthlyFeePence: data.monthlyFeePence }),
         ...(data.currentPeriodStart && { currentPeriodStart: data.currentPeriodStart }),
         ...(data.currentPeriodEnd && { currentPeriodEnd: data.currentPeriodEnd }),
       }
@@ -82,14 +82,14 @@ export class SubscriptionRepository {
     businessId: string;
     outletSubscriptionId?: string;
     cfOrderId: string;
-    amountPaise: number;
-    taxAmountPaise?: number;
+    amountPence: number;
+    taxAmountPence?: number;
     currency?: string;
     paymentSessionId?: string;
     paymentStatus?: SubscriptionPaymentStatus;
     couponId?: string;
     couponCode?: string;
-    discountAmountPaise?: number;
+    discountAmountPence?: number;
     billingMonths?: number;
   }) {
     return prisma.subscriptionPayment.create({
@@ -98,14 +98,14 @@ export class SubscriptionRepository {
         businessId: data.businessId,
         outletSubscriptionId: data.outletSubscriptionId,
         cfOrderId: data.cfOrderId,
-        amountPaise: data.amountPaise,
-        taxAmountPaise: data.taxAmountPaise || 0,
+        amountPence: data.amountPence,
+        taxAmountPence: data.taxAmountPence || 0,
         currency: data.currency || 'GBP',
         paymentSessionId: data.paymentSessionId,
         paymentStatus: data.paymentStatus || SubscriptionPaymentStatus.PENDING,
         couponId: data.couponId,
         couponCode: data.couponCode,
-        discountAmountPaise: data.discountAmountPaise || 0,
+        discountAmountPence: data.discountAmountPence || 0,
         billingMonths: data.billingMonths || 1,
       } as any
     });
@@ -169,12 +169,12 @@ export class SubscriptionRepository {
       });
 
       // Standard monthly fee is £79 + 20% VAT = £94.80 = 9480 pence (fallback only; billingMonths is normally stored)
-      const singleMonthPaise = 9480;
+      const singleMonthPence = 9480;
       // Security: Read billing duration strictly from our internal payment record, NEVER from untrusted raw webhook payloads
       const dbBillingMonths = (payment as any).billingMonths;
       const calculatedMonths = (typeof dbBillingMonths === 'number' && dbBillingMonths > 0)
         ? Math.min(36, dbBillingMonths)
-        : Math.max(1, Math.min(36, Math.round(payment.amountPaise / singleMonthPaise)));
+        : Math.max(1, Math.min(36, Math.round(payment.amountPence / singleMonthPence)));
 
       // Helper for true calendar month addition (preserves exact day of month, handles month-ends)
       const addCalendarMonths = (startDate: Date, monthsToAdd: number): Date => {

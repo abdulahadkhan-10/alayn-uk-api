@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { BreakdownRow, ReportData, Totals } from '../aggregate';
 import { pctChange } from '../periods';
 
-// Excel and CSV renderings of a ReportData. Pound values are numbers (paise / 100, 2 decimals),
+// Excel and CSV renderings of a ReportData. Pound values are numbers (pence / 100, 2 decimals),
 // never formatted strings, so they sum and sort in Excel. Missing values are empty cells.
 
 export type ReportSection =
@@ -20,7 +20,7 @@ type Table = Cell[][]; // first row is the header
 
 const text = (v: string): Cell => ({ v });
 const num = (v: number | null | undefined): Cell => ({ v: v ?? null });
-const money = (paise: number | null | undefined): Cell => ({ v: paise == null ? null : Math.round(paise) / 100, f: 'money' });
+const money = (pence: number | null | undefined): Cell => ({ v: pence == null ? null : Math.round(pence) / 100, f: 'money' });
 const pct = (v: number | null | undefined): Cell => ({ v: v ?? null, f: 'pct' });
 const header = (...names: string[]): Cell[] => names.map(text);
 
@@ -30,15 +30,15 @@ function summaryTable(r: ReportData): Table {
   const c = r.totals.current;
   const p = r.totals.previous;
   const metrics: { name: string; key: keyof Totals; money: boolean }[] = [
-    { name: 'Net sales £', key: 'netSalesPaise', money: true },
+    { name: 'Net sales £', key: 'netSalesPence', money: true },
     { name: 'Orders', key: 'orders', money: false },
-    { name: 'Average order value £', key: 'avgOrderPaise', money: true },
-    { name: 'Discounts £', key: 'discountPaise', money: true },
-    { name: 'Tax £', key: 'taxPaise', money: true },
-    { name: 'Service charge £', key: 'serviceChargePaise', money: true },
+    { name: 'Average order value £', key: 'avgOrderPence', money: true },
+    { name: 'Discounts £', key: 'discountPence', money: true },
+    { name: 'Tax £', key: 'taxPence', money: true },
+    { name: 'Service charge £', key: 'serviceChargePence', money: true },
     { name: 'Cancelled orders', key: 'cancelledOrders', money: false },
-    { name: 'Cancelled sales £', key: 'cancelledPaise', money: true },
-    { name: 'Waste £', key: 'wastePaise', money: true },
+    { name: 'Cancelled sales £', key: 'cancelledPence', money: true },
+    { name: 'Waste £', key: 'wastePence', money: true },
     { name: 'Items sold', key: 'itemsSold', money: false },
   ];
   const cell = (n: number | undefined, isMoney: boolean) => (n == null ? num(null) : isMoney ? money(n) : num(n));
@@ -57,11 +57,11 @@ function trendTable(r: ReportData): Table {
     ? header('Period', 'Sales £', 'Orders', 'Waste £', 'Comparison sales £', 'Comparison orders', 'Change %')
     : header('Period', 'Sales £', 'Orders', 'Waste £');
   return [head, ...r.trend.current.map((b, i) => {
-    const row = [text(b.label), money(b.netSalesPaise), num(b.orders), money(b.wastePaise)];
+    const row = [text(b.label), money(b.netSalesPence), num(b.orders), money(b.wastePence)];
     if (hasPrev) {
       const prev = r.trend.previous[i];
-      const change = prev ? pctChange(b.netSalesPaise, prev.netSalesPaise) : null;
-      row.push(money(prev?.netSalesPaise), num(prev?.orders), pct(change));
+      const change = prev ? pctChange(b.netSalesPence, prev.netSalesPence) : null;
+      row.push(money(prev?.netSalesPence), num(prev?.orders), pct(change));
     }
     return row;
   })];
@@ -73,8 +73,8 @@ function itemsTable(r: ReportData): Table {
     ? header('Item', 'Category', 'Qty', 'Sales £', 'Comparison qty', 'Comparison sales £', 'Change %')
     : header('Item', 'Category', 'Qty', 'Sales £');
   return [head, ...r.items.map((i) => {
-    const row = [text(i.name), text(i.category), num(i.qty), money(i.salesPaise)];
-    if (hasPrev) row.push(num(i.prevQty), money(i.prevSalesPaise), pct(i.changePct));
+    const row = [text(i.name), text(i.category), num(i.qty), money(i.salesPence)];
+    if (hasPrev) row.push(num(i.prevQty), money(i.prevSalesPence), pct(i.changePct));
     return row;
   })];
 }
@@ -85,8 +85,8 @@ function breakdownTable(r: ReportData, rows: BreakdownRow[], names: { name: stri
     ? header(names.name, names.value, names.count, 'Share %', `Comparison ${names.value.charAt(0).toLowerCase()}${names.value.slice(1)}`, `Comparison ${names.count.toLowerCase()}`, 'Change %')
     : header(names.name, names.value, names.count, 'Share %');
   return [head, ...rows.map((b) => {
-    const row = [text(b.label), money(b.current.netSalesPaise), num(b.current.orders), pct(b.sharePct)];
-    if (hasPrev) row.push(money(b.previous?.netSalesPaise), num(b.previous?.orders), pct(b.changePct));
+    const row = [text(b.label), money(b.current.netSalesPence), num(b.current.orders), pct(b.sharePct)];
+    if (hasPrev) row.push(money(b.previous?.netSalesPence), num(b.previous?.orders), pct(b.changePct));
     return row;
   })];
 }

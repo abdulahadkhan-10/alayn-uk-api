@@ -37,7 +37,7 @@ beforeEach(() => {
   (emailService.sendMail as jest.Mock).mockResolvedValue('not_configured');
   (buildReport as jest.Mock).mockResolvedValue({
     period: { label: 'Oct 2026' }, highlights: ['Sales were up'],
-    totals: { current: { netSalesPaise: 123400, orders: 5, avgOrderPaise: 24680 }, changePct: {} },
+    totals: { current: { netSalesPence: 123400, orders: 5, avgOrderPence: 24680 }, changePct: {} },
     scope: { outletNames: ['One'], businessName: 'Biz' },
   });
 });
@@ -157,7 +157,7 @@ describe('sending', () => {
     p.reportSchedule.updateMany.mockResolvedValue({ count: 1 });
     (buildReport as jest.Mock).mockResolvedValue({
       period: { label: 'Oct 2026' }, highlights: ['Top item: <script>alert(1)</script> Biryani'],
-      totals: { current: { netSalesPaise: 100, orders: 1, avgOrderPaise: 100 }, changePct: {} },
+      totals: { current: { netSalesPence: 100, orders: 1, avgOrderPence: 100 }, changePct: {} },
       scope: { outletNames: ['<b>Main</b>'], businessName: 'Tom & <script>Jerry</script>' },
     });
     await sendScheduledReport(row() as any, IST('2026-11-01T09:05:00'));

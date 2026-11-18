@@ -3,7 +3,7 @@ import { ONE_DAY_MS, BUSINESS_DAY_START_HOUR, businessDayStart, businessParts, o
 
 // Pure report aggregation: turns loaded orders and waste rows into the ReportData that every
 // report surface (API, PDF, Excel, page, Ask Alayn, emails) renders. No database access here.
-// Money stays in integer paise. Every hour/weekday/day bucket is computed in UK time.
+// Money stays in integer pence. Every hour/weekday/day bucket is computed in UK time.
 
 export type Channel = 'TABLE' | 'QR' | 'COUNTER' | 'DELIVERY';
 export type Granularity = 'hour' | 'day' | 'week' | 'month';
@@ -20,13 +20,13 @@ export interface ReportFilters {
 
 export interface RawOrder {
   id: string; outletId: string; createdAt: Date; source: Channel; status: string;
-  subtotalPaise: number; discountPaise: number; vatPaise: number; serviceTaxPaise: number;
-  items: { menuItemId: string; quantity: number; subtotalPaise: number }[];
-  payments: { method: 'CARD' | 'CASH' | 'DELIVEROO' | 'UBER_EATS' | 'JUST_EAT'; amountPaise: number }[]; // CONFIRMED payments only
+  subtotalPence: number; discountPence: number; vatPence: number; serviceTaxPence: number;
+  items: { menuItemId: string; quantity: number; subtotalPence: number }[];
+  payments: { method: 'CARD' | 'CASH' | 'DELIVEROO' | 'UBER_EATS' | 'JUST_EAT'; amountPence: number }[]; // CONFIRMED payments only
 }
 
 export interface RawWaste {
-  outletId: string; createdAt: Date; reason: 'SPOILAGE' | 'OVER_PREP' | 'RETURN' | 'ERROR'; costAtLoggingPaise: number;
+  outletId: string; createdAt: Date; reason: 'SPOILAGE' | 'OVER_PREP' | 'RETURN' | 'ERROR'; costAtLoggingPence: number;
 }
 
 export interface Lookups {
@@ -35,18 +35,18 @@ export interface Lookups {
 }
 
 export interface Totals {
-  netSalesPaise: number; orders: number; avgOrderPaise: number; discountPaise: number; taxPaise: number;
-  serviceChargePaise: number; cancelledOrders: number; cancelledPaise: number; wastePaise: number; itemsSold: number;
+  netSalesPence: number; orders: number; avgOrderPence: number; discountPence: number; taxPence: number;
+  serviceChargePence: number; cancelledOrders: number; cancelledPence: number; wastePence: number; itemsSold: number;
 }
-export interface Figures { netSalesPaise: number; orders: number }
+export interface Figures { netSalesPence: number; orders: number }
 export interface BreakdownRow {
   key: string; label: string; current: Figures; previous: Figures | null; changePct: number | null; sharePct: number;
 }
 export interface ItemRow {
-  menuItemId: string; name: string; category: string; qty: number; salesPaise: number;
-  prevQty: number | null; prevSalesPaise: number | null; changePct: number | null;
+  menuItemId: string; name: string; category: string; qty: number; salesPence: number;
+  prevQty: number | null; prevSalesPence: number | null; changePct: number | null;
 }
-export interface TrendBucket { label: string; start: string; netSalesPaise: number; orders: number; wastePaise: number }
+export interface TrendBucket { label: string; start: string; netSalesPence: number; orders: number; wastePence: number }
 
 export interface ReportData {
   period: { start: string; end: string; label: string };
@@ -54,7 +54,7 @@ export interface ReportData {
   totals: { current: Totals; previous: Totals | null; changePct: Partial<Record<keyof Totals, number | null>> };
   trend: { granularity: Granularity; current: TrendBucket[]; previous: TrendBucket[] };
   channels: BreakdownRow[]; payments: BreakdownRow[]; categories: BreakdownRow[]; outlets: BreakdownRow[];
-  hours: BreakdownRow[]; weekdays: BreakdownRow[]; waste: BreakdownRow[]; // waste: netSalesPaise holds cost, orders holds entries
+  hours: BreakdownRow[]; weekdays: BreakdownRow[]; waste: BreakdownRow[]; // waste: netSalesPence holds cost, orders holds entries
   items: ItemRow[]; highlights: string[]; notes: string[];
 }
 
@@ -77,16 +77,16 @@ const PAYMENT_LABELS: Record<string, string> = {
   JUST_EAT: 'Just Eat',
 };
 const WASTE_LABELS: Record<string, string> = { SPOILAGE: 'Spoilage', OVER_PREP: 'Over-preparation', RETURN: 'Returned', ERROR: 'Mistake' };
-const MIN_ITEM_MOVE_PAISE = 50000; // £500
+const MIN_ITEM_MOVE_PENCE = 50000; // £500
 const MIN_SHARE_MOVE_POINTS = 5;
 const MIN_WASTE_MOVE_PCT = 20;
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
-const zero = (): Figures => ({ netSalesPaise: 0, orders: 0 });
+const zero = (): Figures => ({ netSalesPence: 0, orders: 0 });
 
-export function formatMoney(paise: number): string {
-  const sign = paise < 0 ? '-' : '';
-  return `${sign}£${(Math.abs(paise) / 100).toLocaleString('en-GB', { maximumFractionDigits: 0 })}`;
+export function formatMoney(pence: number): string {
+  const sign = pence < 0 ? '-' : '';
+  return `${sign}£${(Math.abs(pence) / 100).toLocaleString('en-GB', { maximumFractionDigits: 0 })}`;
 }
 
 export function autoGranularity(range: DateRange): Granularity {
@@ -101,8 +101,8 @@ export function autoGranularity(range: DateRange): Granularity {
 
 interface NormOrder {
   outletId: string; at: Date; source: Channel; settled: boolean;
-  salesPaise: number; discountPaise: number; taxPaise: number; serviceChargePaise: number;
-  payments: RawOrder['payments']; lines: { id: string; qty: number; salesPaise: number }[];
+  salesPence: number; discountPence: number; taxPence: number; serviceChargePence: number;
+  payments: RawOrder['payments']; lines: { id: string; qty: number; salesPence: number }[];
 }
 
 const hourOk = (at: Date, f: ReportFilters) => {
@@ -119,7 +119,7 @@ function normalise(orders: RawOrder[], f: ReportFilters, lookups: Lookups): Norm
     if (o.status !== 'COMPLETED' && o.status !== 'CANCELLED') continue;
     if (f.sources && f.sources.length > 0 && !f.sources.includes(o.source)) continue;
     if (!weekdayOk(o.createdAt, f) || !hourOk(o.createdAt, f)) continue;
-    let lines = o.items.map((i) => ({ id: i.menuItemId, qty: i.quantity, salesPaise: i.subtotalPaise }));
+    let lines = o.items.map((i) => ({ id: i.menuItemId, qty: i.quantity, salesPence: i.subtotalPence }));
     if (cats) {
       lines = lines.filter((l) => {
         const cat = lookups.items.get(l.id)?.categoryId;
@@ -130,10 +130,10 @@ function normalise(orders: RawOrder[], f: ReportFilters, lookups: Lookups): Norm
     out.push({
       outletId: o.outletId, at: o.createdAt, source: o.source, settled: o.status === 'COMPLETED', lines,
       // A category filter can't apportion bill-level discount, tax, service charge or payments.
-      salesPaise: cats ? lines.reduce((s, l) => s + l.salesPaise, 0) : o.subtotalPaise - o.discountPaise,
-      discountPaise: cats ? 0 : o.discountPaise,
-      taxPaise: cats ? 0 : o.vatPaise,
-      serviceChargePaise: cats ? 0 : o.serviceTaxPaise,
+      salesPence: cats ? lines.reduce((s, l) => s + l.salesPence, 0) : o.subtotalPence - o.discountPence,
+      discountPence: cats ? 0 : o.discountPence,
+      taxPence: cats ? 0 : o.vatPence,
+      serviceChargePence: cats ? 0 : o.serviceTaxPence,
       payments: cats ? [] : o.payments,
     });
   }
@@ -145,24 +145,24 @@ const filterWaste = (waste: RawWaste[], f: ReportFilters) =>
 
 function totalsOf(orders: NormOrder[], waste: RawWaste[]): Totals {
   const t: Totals = {
-    netSalesPaise: 0, orders: 0, avgOrderPaise: 0, discountPaise: 0, taxPaise: 0, serviceChargePaise: 0,
-    cancelledOrders: 0, cancelledPaise: 0, wastePaise: 0, itemsSold: 0,
+    netSalesPence: 0, orders: 0, avgOrderPence: 0, discountPence: 0, taxPence: 0, serviceChargePence: 0,
+    cancelledOrders: 0, cancelledPence: 0, wastePence: 0, itemsSold: 0,
   };
   for (const o of orders) {
     if (!o.settled) {
       t.cancelledOrders += 1;
-      t.cancelledPaise += o.salesPaise;
+      t.cancelledPence += o.salesPence;
       continue;
     }
     t.orders += 1;
-    t.netSalesPaise += o.salesPaise;
-    t.discountPaise += o.discountPaise;
-    t.taxPaise += o.taxPaise;
-    t.serviceChargePaise += o.serviceChargePaise;
+    t.netSalesPence += o.salesPence;
+    t.discountPence += o.discountPence;
+    t.taxPence += o.taxPence;
+    t.serviceChargePence += o.serviceChargePence;
     t.itemsSold += o.lines.reduce((s, l) => s + l.qty, 0);
   }
-  t.avgOrderPaise = t.orders > 0 ? Math.round(t.netSalesPaise / t.orders) : 0;
-  t.wastePaise = waste.reduce((s, w) => s + w.costAtLoggingPaise, 0);
+  t.avgOrderPence = t.orders > 0 ? Math.round(t.netSalesPence / t.orders) : 0;
+  t.wastePence = waste.reduce((s, w) => s + w.costAtLoggingPence, 0);
   return t;
 }
 
@@ -171,27 +171,27 @@ function totalsOf(orders: NormOrder[], waste: RawWaste[]): Totals {
 type FigMap = Map<string, Figures>;
 function bump(map: FigMap, key: string, net: number, orders = 1) {
   const f = map.get(key) ?? zero();
-  f.netSalesPaise += net;
+  f.netSalesPence += net;
   f.orders += orders;
   map.set(key, f);
 }
 
 function buildRows(cur: FigMap, prev: FigMap | null, labelOf: (key: string) => string, order?: string[]): BreakdownRow[] {
   const keys = order ?? [...new Set([...cur.keys(), ...(prev?.keys() ?? [])])];
-  const total = [...cur.values()].reduce((s, f) => s + f.netSalesPaise, 0);
+  const total = [...cur.values()].reduce((s, f) => s + f.netSalesPence, 0);
   const rows = keys.map((key): BreakdownRow => {
     const current = cur.get(key) ?? zero();
     const previous = prev ? prev.get(key) ?? zero() : null;
     return {
       key, label: labelOf(key), current, previous,
-      changePct: previous ? pctChange(current.netSalesPaise, previous.netSalesPaise) : null,
-      sharePct: total > 0 ? round1((current.netSalesPaise / total) * 100) : 0,
+      changePct: previous ? pctChange(current.netSalesPence, previous.netSalesPence) : null,
+      sharePct: total > 0 ? round1((current.netSalesPence / total) * 100) : 0,
     };
   });
   if (order) return rows;
   return rows.sort((a, b) =>
-    b.current.netSalesPaise - a.current.netSalesPaise ||
-    (b.previous?.netSalesPaise ?? 0) - (a.previous?.netSalesPaise ?? 0) ||
+    b.current.netSalesPence - a.current.netSalesPence ||
+    (b.previous?.netSalesPence ?? 0) - (a.previous?.netSalesPence ?? 0) ||
     a.key.localeCompare(b.key));
 }
 
@@ -223,22 +223,22 @@ function breakdownMaps(orders: NormOrder[], waste: RawWaste[], lookups: Lookups,
     if (!o.settled) continue;
     const { hour } = outletLocalParts(o.at); // real clock hour
     const { weekday } = businessParts(o.at); // business day (5 AM to 5 AM)
-    bump(m.channels, o.source, o.salesPaise);
-    bump(m.outlets, o.outletId, o.salesPaise);
-    bump(m.hours, String(hour), o.salesPaise);
-    bump(m.weekdays, String(weekday), o.salesPaise);
+    bump(m.channels, o.source, o.salesPence);
+    bump(m.outlets, o.outletId, o.salesPence);
+    bump(m.hours, String(hour), o.salesPence);
+    bump(m.weekdays, String(weekday), o.salesPence);
     for (const method of new Set(o.payments.map((p) => p.method))) {
-      bump(m.payments, method, o.payments.filter((p) => p.method === method).reduce((s, p) => s + p.amountPaise, 0));
+      bump(m.payments, method, o.payments.filter((p) => p.method === method).reduce((s, p) => s + p.amountPence, 0));
     }
     const perCategory = new Map<string, number>();
     for (const l of o.lines) {
       const key = categoryKey(l.id, lookups, categoryLabels);
-      perCategory.set(key, (perCategory.get(key) ?? 0) + l.salesPaise);
+      perCategory.set(key, (perCategory.get(key) ?? 0) + l.salesPence);
     }
     perCategory.forEach((sales, key) => bump(m.categories, key, sales));
   }
   for (const w of waste) {
-    bump(m.waste, w.reason, w.costAtLoggingPaise);
+    bump(m.waste, w.reason, w.costAtLoggingPence);
     if (!m.outlets.has(w.outletId)) m.outlets.set(w.outletId, zero()); // outlet had waste but no sales
   }
   return m;
@@ -261,7 +261,7 @@ function itemRows(cur: NormOrder[], prev: NormOrder[] | null, lookups: Lookups):
         if (!first.has(key)) first.set(key, l.id);
         const e = map.get(key) ?? { qty: 0, sales: 0 };
         e.qty += l.qty;
-        e.sales += l.salesPaise;
+        e.sales += l.salesPence;
         map.set(key, e);
       }
     }
@@ -278,11 +278,11 @@ function itemRows(cur: NormOrder[], prev: NormOrder[] | null, lookups: Lookups):
     return {
       menuItemId: id, name: info?.name.trim() ?? 'Unknown item',
       category: info && categoryKeyOf(info) !== NO_CATEGORY ? info.categoryName.trim() : 'Uncategorised',
-      qty: now.qty, salesPaise: now.sales,
-      prevQty: before ? before.qty : null, prevSalesPaise: before ? before.sales : null,
+      qty: now.qty, salesPence: now.sales,
+      prevQty: before ? before.qty : null, prevSalesPence: before ? before.sales : null,
       changePct: before ? pctChange(now.sales, before.sales) : null,
     };
-  }).sort((a, b) => b.salesPaise - a.salesPaise || a.name.localeCompare(b.name));
+  }).sort((a, b) => b.salesPence - a.salesPence || a.name.localeCompare(b.name));
 }
 
 // ---------- trend buckets ----------
@@ -320,15 +320,15 @@ function bucketLabel(start: Date, g: Granularity): string {
 function trendOf(range: DateRange, orders: NormOrder[], waste: RawWaste[], g: Granularity): TrendBucket[] {
   const buckets = new Map<number, TrendBucket>();
   for (let s = bucketStart(range.start, g); s.getTime() <= range.end.getTime(); s = nextBucket(s, g)) {
-    buckets.set(s.getTime(), { label: bucketLabel(s, g), start: s.toISOString(), netSalesPaise: 0, orders: 0, wastePaise: 0 });
+    buckets.set(s.getTime(), { label: bucketLabel(s, g), start: s.toISOString(), netSalesPence: 0, orders: 0, wastePence: 0 });
   }
   for (const o of orders) {
     const b = o.settled ? buckets.get(bucketStart(o.at, g).getTime()) : undefined;
-    if (b) { b.netSalesPaise += o.salesPaise; b.orders += 1; }
+    if (b) { b.netSalesPence += o.salesPence; b.orders += 1; }
   }
   for (const w of waste) {
     const b = buckets.get(bucketStart(w.createdAt, g).getTime());
-    if (b) b.wastePaise += w.costAtLoggingPaise;
+    if (b) b.wastePence += w.costAtLoggingPence;
   }
   return [...buckets.values()];
 }
@@ -338,40 +338,40 @@ function trendOf(range: DateRange, orders: NormOrder[], waste: RawWaste[], g: Gr
 export function buildHighlights(r: Omit<ReportData, 'highlights'>): string[] {
   const out: string[] = [];
   const cur = r.totals.current;
-  const sales = r.totals.changePct.netSalesPaise;
+  const sales = r.totals.changePct.netSalesPence;
   const compareText = r.comparison ? r.comparison.compareLabel.replace(/^vs /, '') : '';
 
   if (r.comparison && sales != null) {
-    out.push(`Sales ${formatMoney(cur.netSalesPaise)}, ${sales >= 0 ? 'up' : 'down'} ${Math.abs(sales)}% vs ${compareText}`);
+    out.push(`Sales ${formatMoney(cur.netSalesPence)}, ${sales >= 0 ? 'up' : 'down'} ${Math.abs(sales)}% vs ${compareText}`);
   } else {
-    out.push(`Sales ${formatMoney(cur.netSalesPaise)}`);
+    out.push(`Sales ${formatMoney(cur.netSalesPence)}`);
   }
 
   if (!r.comparison) {
     if (r.trend.granularity === 'day') {
-      const best = r.trend.current.reduce<TrendBucket | null>((b, x) => (!b || x.netSalesPaise > b.netSalesPaise ? x : b), null);
-      if (best && best.netSalesPaise > 0) out.push(`Busiest day: ${best.label} (${formatMoney(best.netSalesPaise)})`);
+      const best = r.trend.current.reduce<TrendBucket | null>((b, x) => (!b || x.netSalesPence > b.netSalesPence ? x : b), null);
+      if (best && best.netSalesPence > 0) out.push(`Busiest day: ${best.label} (${formatMoney(best.netSalesPence)})`);
     }
     return out.slice(0, 5);
   }
 
   const moves = r.items
-    .filter((i) => i.prevSalesPaise != null)
-    .map((i) => ({ item: i, delta: i.salesPaise - (i.prevSalesPaise as number) }));
+    .filter((i) => i.prevSalesPence != null)
+    .map((i) => ({ item: i, delta: i.salesPence - (i.prevSalesPence as number) }));
   const gain = moves.reduce<(typeof moves)[number] | null>((b, m) => (!b || m.delta > b.delta ? m : b), null);
-  if (gain && gain.delta >= MIN_ITEM_MOVE_PAISE) {
+  if (gain && gain.delta >= MIN_ITEM_MOVE_PENCE) {
     const pct = gain.item.changePct != null ? ` (${gain.item.changePct}%)` : '';
     out.push(`${gain.item.name} grew the most: +${formatMoney(gain.delta)}${pct}`);
   }
   const drop = moves.reduce<(typeof moves)[number] | null>((b, m) => (!b || m.delta < b.delta ? m : b), null);
-  if (drop && -drop.delta >= MIN_ITEM_MOVE_PAISE) out.push(`${drop.item.name} fell the most: −${formatMoney(-drop.delta)}`);
+  if (drop && -drop.delta >= MIN_ITEM_MOVE_PENCE) out.push(`${drop.item.name} fell the most: −${formatMoney(-drop.delta)}`);
 
-  const prevSales = r.totals.previous?.netSalesPaise ?? 0;
-  if (prevSales > 0 && cur.netSalesPaise > 0) {
+  const prevSales = r.totals.previous?.netSalesPence ?? 0;
+  if (prevSales > 0 && cur.netSalesPence > 0) {
     let best: { label: string; now: number; was: number } | null = null;
     for (const c of r.channels) {
-      const now = (c.current.netSalesPaise / cur.netSalesPaise) * 100;
-      const was = ((c.previous?.netSalesPaise ?? 0) / prevSales) * 100;
+      const now = (c.current.netSalesPence / cur.netSalesPence) * 100;
+      const was = ((c.previous?.netSalesPence ?? 0) / prevSales) * 100;
       if (Math.abs(now - was) >= MIN_SHARE_MOVE_POINTS && (!best || Math.abs(now - was) > Math.abs(best.now - best.was))) {
         best = { label: c.label, now, was };
       }
@@ -379,9 +379,9 @@ export function buildHighlights(r: Omit<ReportData, 'highlights'>): string[] {
     if (best) out.push(`${best.label} was ${Math.round(best.now)}% of sales (was ${Math.round(best.was)}%)`);
   }
 
-  const waste = r.totals.changePct.wastePaise;
+  const waste = r.totals.changePct.wastePence;
   if (waste != null && Math.abs(waste) >= MIN_WASTE_MOVE_PCT) {
-    out.push(`Waste ${formatMoney(cur.wastePaise)}, ${waste >= 0 ? 'up' : 'down'} ${Math.abs(waste)}%`);
+    out.push(`Waste ${formatMoney(cur.wastePence)}, ${waste >= 0 ? 'up' : 'down'} ${Math.abs(waste)}%`);
   }
   return out.slice(0, 5);
 }
@@ -411,7 +411,7 @@ export function aggregate(input: AggregateInput): ReportData {
 
   const categoryName = (key: string) => categoryLabels.get(key) ?? 'Uncategorised';
   const hasData = (key: string, k: keyof Maps) =>
-    (cm[k].get(key)?.netSalesPaise ?? 0) > 0 || (pm?.[k].get(key)?.netSalesPaise ?? 0) > 0;
+    (cm[k].get(key)?.netSalesPence ?? 0) > 0 || (pm?.[k].get(key)?.netSalesPence ?? 0) > 0;
   // Hours in business-day order (5 AM first, 4 AM last) so late-night sales follow the evening
   const hourKeys = Array.from({ length: 24 }, (_, i) => String((i + BUSINESS_DAY_START_HOUR) % 24)).filter((h) => hasData(h, 'hours'));
 

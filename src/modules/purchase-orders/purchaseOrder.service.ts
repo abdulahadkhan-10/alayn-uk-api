@@ -191,7 +191,7 @@ export class PurchaseOrderService {
   async createPO(
     outletId: string,
     supplierId: string,
-    items: { itemId: string; orderedQuantity: number; unitCostPaise: number }[],
+    items: { itemId: string; orderedQuantity: number; unitCostPence: number }[],
     businessId?: string | null,
     clientRequestId?: string
   ) {
@@ -225,7 +225,7 @@ export class PurchaseOrderService {
       }
     }
 
-    let totalAmountPaise = 0;
+    let totalAmountPence = 0;
     for (const item of items) {
       // Stock items must belong to the outlet receiving the delivery
       const itemRecord = await prisma.item.findFirst({
@@ -238,7 +238,7 @@ export class PurchaseOrderService {
           404
         );
       }
-      totalAmountPaise += Math.round(item.orderedQuantity * item.unitCostPaise);
+      totalAmountPence += Math.round(item.orderedQuantity * item.unitCostPence);
     }
 
     // Number and order are created together: if the insert fails, the PO number is released
@@ -248,7 +248,7 @@ export class PurchaseOrderService {
       updatedPO = await prisma.$transaction(
         async (tx) => {
           const poNumber = await generatePONumber(tx, outletForPO);
-          return this.poRepository.createPO(outletForPO, supplierId, poNumber, totalAmountPaise, items, clientRequestId, tx);
+          return this.poRepository.createPO(outletForPO, supplierId, poNumber, totalAmountPence, items, clientRequestId, tx);
         },
         DOCUMENT_NUMBER_TX_OPTIONS
       );
@@ -269,7 +269,7 @@ export class PurchaseOrderService {
       supplierId: updatedPO.supplierId,
       supplierUserId: updatedPO.actualSupplier?.userId,
       status: 'SENT',
-      totalAmountPaise: updatedPO.totalAmountPaise,
+      totalAmountPence: updatedPO.totalAmountPence,
       outletId: updatedPO.outletId,
     }).catch(() => {});
 
@@ -409,7 +409,7 @@ export class PurchaseOrderService {
       poNumber: updatedPO.poNumber,
       supplierId: updatedPO.supplierId,
       status: updatedPO.status,
-      totalAmountPaise: updatedPO.totalAmountPaise,
+      totalAmountPence: updatedPO.totalAmountPence,
       outletId: updatedPO.outletId,
     }).catch(() => {});
 
@@ -506,18 +506,18 @@ export class PurchaseOrderService {
             _sum: { change: true },
           });
           const stockOnHand = Math.max(0, decimalToNumber(ledgerSum._sum.change));
-          const previousCostPaise = poItem.item.unitCostPaise;
-          const newCostPaise =
-            stockOnHand > 0 && typeof previousCostPaise === 'number'
+          const previousCostPence = poItem.item.unitCostPence;
+          const newCostPence =
+            stockOnHand > 0 && typeof previousCostPence === 'number'
               ? Math.round(
-                  (stockOnHand * previousCostPaise + newlyReceived * poItem.unitCostPaise) /
+                  (stockOnHand * previousCostPence + newlyReceived * poItem.unitCostPence) /
                     (stockOnHand + newlyReceived)
                 )
-              : poItem.unitCostPaise;
-          if (newCostPaise !== previousCostPaise) {
+              : poItem.unitCostPence;
+          if (newCostPence !== previousCostPence) {
             await tx.item.update({
               where: { id: poItem.itemId },
-              data: { unitCostPaise: newCostPaise },
+              data: { unitCostPence: newCostPence },
             });
           }
 
@@ -528,7 +528,7 @@ export class PurchaseOrderService {
               quantity: new Prisma.Decimal(newlyReceived),
               expiryDate: parseValidExpiryDate(itemToReceive.expiryDate),
               batchNumber: itemToReceive.batchNumber || `BCH-${Date.now()}`,
-              unitCostPaise: poItem.unitCostPaise,
+              unitCostPence: poItem.unitCostPence,
             },
           });
 
@@ -592,7 +592,7 @@ export class PurchaseOrderService {
       poNumber: updatedPO.poNumber,
       supplierId: updatedPO.supplierId,
       status: updatedPO.status,
-      totalAmountPaise: updatedPO.totalAmountPaise,
+      totalAmountPence: updatedPO.totalAmountPence,
       outletId: updatedPO.outletId,
     }).catch(() => {});
 
@@ -677,7 +677,7 @@ export class PurchaseOrderService {
       supplierId: updatedPO.supplierId,
       supplierUserId: updatedPO.actualSupplier?.userId,
       status: updatedPO.status,
-      totalAmountPaise: updatedPO.totalAmountPaise,
+      totalAmountPence: updatedPO.totalAmountPence,
       outletId: updatedPO.outletId,
     }).catch(() => {});
 

@@ -16,7 +16,7 @@ const ist = (y: number, m: number, d: number, hhmm: string) => {
 describe('Waste "this month" is India time', () => {
   beforeEach(() => {
     (prisma.wasteLog.groupBy as jest.Mock).mockResolvedValue([]);
-    (prisma.wasteLog.aggregate as jest.Mock).mockResolvedValue({ _sum: { costAtLoggingPaise: 0 } });
+    (prisma.wasteLog.aggregate as jest.Mock).mockResolvedValue({ _sum: { costAtLoggingPence: 0 } });
   });
   afterEach(() => jest.useRealTimers());
 

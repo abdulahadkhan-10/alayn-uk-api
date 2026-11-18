@@ -27,9 +27,9 @@ export interface MarketplaceSupplierRow {
   totalItems: number;
   fastestLeadTimeHours: number;
   /** Cheapest item among those matching the search/category */
-  minPricePaise: number;
+  minPricePence: number;
   /** Cheapest products whose name matches the search (up to 3) */
-  matchedItems: { id: string; supplierId: string; name: string; unit: string; pricePaise: number; inStock: boolean }[];
+  matchedItems: { id: string; supplierId: string; name: string; unit: string; pricePence: number; inStock: boolean }[];
   matchedCount: number;
 }
 
@@ -150,7 +150,7 @@ export class SupplierService {
 
     const supplierById = new Map<string, any>(suppliers.map((s: any) => [s.id, s]));
     const minPriceById = new Map<string, number>(
-      minPrices.map((g: any) => [g.supplierId, g._min.pricePaise ?? 0])
+      minPrices.map((g: any) => [g.supplierId, g._min.pricePence ?? 0])
     );
 
     const statsById = new Map<string, { categories: string[]; totalItems: number; fastest: number }>();
@@ -180,7 +180,7 @@ export class SupplierService {
         categories: s.categories.sort((a, b) => a.localeCompare(b)),
         totalItems: s.totalItems,
         fastestLeadTimeHours: Number.isFinite(s.fastest) ? s.fastest : 24,
-        minPricePaise: minPriceById.get(id) ?? 0,
+        minPricePence: minPriceById.get(id) ?? 0,
         matchedItems: matched.slice(0, MAX_MATCHED_ITEMS),
         matchedCount: matched.length,
       });
@@ -202,7 +202,7 @@ export class SupplierService {
     search?: string;
     category?: string;
     inStockOnly?: boolean;
-    maxPricePaise?: number;
+    maxPricePence?: number;
   }) {
     return this.supplierRepository.findMarketCatalog(params);
   }
@@ -210,7 +210,7 @@ export class SupplierService {
   async compareSuppliers(params: {
     itemName?: string;
     category?: string;
-    currentUnitCostPaise?: number;
+    currentUnitCostPence?: number;
     unit?: string;
   }) {
     const items = await this.supplierRepository.findItemsForComparison(params.itemName, params.category);
@@ -219,7 +219,7 @@ export class SupplierService {
       return {
         summary: {
           totalSuppliersFound: 0,
-          lowestPricePaise: 0,
+          lowestPricePence: 0,
           highestSavingsPercent: 0,
           fastestDeliveryHours: 0,
         },
@@ -232,19 +232,19 @@ export class SupplierService {
       };
     }
 
-    const currentCost = params.currentUnitCostPaise || 0;
+    const currentCost = params.currentUnitCostPence || 0;
 
     // Process options with computed metrics
     const processed = items.map((item: any) => {
-      const pricePaise = item.pricePaise;
-      let savingsPaise = 0;
+      const pricePence = item.pricePence;
+      let savingsPence = 0;
       let savingsPercent = 0;
       let isCheaper = false;
 
       if (currentCost > 0) {
-        savingsPaise = currentCost - pricePaise;
-        savingsPercent = Math.round((savingsPaise / currentCost) * 100);
-        isCheaper = savingsPaise > 0;
+        savingsPence = currentCost - pricePence;
+        savingsPercent = Math.round((savingsPence / currentCost) * 100);
+        isCheaper = savingsPence > 0;
       }
 
       const rating = Number(item.supplier?.rating || 5.0);
@@ -261,13 +261,13 @@ export class SupplierService {
         itemName: item.name,
         category: item.category,
         unit: item.unit,
-        pricePaise: item.pricePaise,
-        priceRupees: item.pricePaise / 100,
+        pricePence: item.pricePence,
+        pricePounds: item.pricePence / 100,
         minOrderQty: Number(item.minOrderQty || 1),
         inStock: item.inStock,
         leadTimeHours: item.leadTimeHours || 24,
         description: item.description,
-        savingsPaise,
+        savingsPence,
         savingsPercent,
         isCheaper,
       };
@@ -277,7 +277,7 @@ export class SupplierService {
     const inStockItems = processed.filter((i: any) => i.inStock);
     const pool = inStockItems.length > 0 ? inStockItems : processed;
 
-    const cheapest = [...pool].sort((a, b) => a.pricePaise - b.pricePaise)[0] || null;
+    const cheapest = [...pool].sort((a, b) => a.pricePence - b.pricePence)[0] || null;
 
     // Pick Top Rated Wholesaler (highest rating)
     const bestQuality = [...pool].sort((a, b) => b.rating - a.rating)[0] || null;
@@ -285,15 +285,15 @@ export class SupplierService {
     // Pick Fastest Delivery (lowest leadTimeHours)
     const fastestDelivery = [...pool].sort((a, b) => a.leadTimeHours - b.leadTimeHours)[0] || null;
 
-    const lowestPrice = cheapest ? cheapest.pricePaise : 0;
+    const lowestPrice = cheapest ? cheapest.pricePence : 0;
     const highestSavings = Math.max(0, ...processed.map((p: any) => p.savingsPercent));
     const fastestHours = fastestDelivery ? fastestDelivery.leadTimeHours : 24;
 
     return {
       summary: {
         totalSuppliersFound: processed.length,
-        lowestPricePaise: lowestPrice,
-        lowestPriceRupees: lowestPrice / 100,
+        lowestPricePence: lowestPrice,
+        lowestPricePounds: lowestPrice / 100,
         highestSavingsPercent: highestSavings,
         fastestDeliveryHours: fastestHours,
       },
@@ -302,7 +302,7 @@ export class SupplierService {
         bestQuality,
         fastestDelivery,
       },
-      allOptions: processed.sort((a: any, b: any) => a.pricePaise - b.pricePaise),
+      allOptions: processed.sort((a: any, b: any) => a.pricePence - b.pricePence),
     };
   }
 }

@@ -16,21 +16,21 @@ const ist = (daysAgo: number, hhmm: string) => {
   return new Date(Date.UTC(2026, 9, 13, h, m) - 330 * 60 * 1000 - daysAgo * DAY_MS);
 };
 
-type FakeOrder = { outletId: string; status: string; createdAt: Date; subtotalPaise: number; deletedAt: null };
+type FakeOrder = { outletId: string; status: string; createdAt: Date; subtotalPence: number; deletedAt: null };
 
 // Bandra (A): ₹500 at lunch + ₹500 just before midnight, every day → ₹1,000/day
 // Juhu (B): a late-night outlet, ₹2,000 at 12:10 AM after each evening it opens. Days run 5 AM to 5 AM,
 // so that sale belongs to the evening before. Closed on Sundays, holiday on Thu 15 Oct
 const ORDERS: FakeOrder[] = [];
 for (let daysAgo = 70; daysAgo >= 0; daysAgo--) {
-  const order = (outletId: string, createdAt: Date, subtotalPaise: number) =>
-    ORDERS.push({ outletId, status: 'COMPLETED', createdAt, subtotalPaise, deletedAt: null });
+  const order = (outletId: string, createdAt: Date, subtotalPence: number) =>
+    ORDERS.push({ outletId, status: 'COMPLETED', createdAt, subtotalPence, deletedAt: null });
   order('A', ist(daysAgo, '12:00'), 50_000);
   if (daysAgo > 0) order('A', ist(daysAgo, '23:50'), 50_000); // tonight hasn't happened yet
   const openEvening = ist(daysAgo, '12:00').getUTCDay() !== 0;
   if (daysAgo > 0 && openEvening) order('B', new Date(ist(daysAgo, '00:10').getTime() + DAY_MS), 200_000); // next morning 12:10 AM
 }
-ORDERS.push({ outletId: 'A', status: 'CANCELLED', createdAt: ist(1, '13:00'), subtotalPaise: 9_999_900, deletedAt: null });
+ORDERS.push({ outletId: 'A', status: 'CANCELLED', createdAt: ist(1, '13:00'), subtotalPence: 9_999_900, deletedAt: null });
 
 const OUTLETS = [
   { id: 'A', operatingDays: null },
@@ -92,7 +92,7 @@ describe('Sales forecast endpoint', () => {
 
   it('keeps learning instead of inventing numbers after a single test order', async () => {
     (prisma.order.findMany as jest.Mock).mockResolvedValue([
-      { outletId: 'A', createdAt: ist(9, '12:00'), subtotalPaise: 71_000 },
+      { outletId: 'A', createdAt: ist(9, '12:00'), subtotalPence: 71_000 },
     ]);
     const result = await service.getSalesForecast('A', 'biz-1', NOW);
 
@@ -105,7 +105,7 @@ describe('Sales forecast endpoint', () => {
 
   it('gives a new café an early estimate from its third day of sales', async () => {
     (prisma.order.findMany as jest.Mock).mockResolvedValue(
-      [0, 1, 2, 3, 4].map((d) => ({ outletId: 'A', createdAt: ist(d, '12:00'), subtotalPaise: 50_000 })),
+      [0, 1, 2, 3, 4].map((d) => ({ outletId: 'A', createdAt: ist(d, '12:00'), subtotalPence: 50_000 })),
     );
     const result = await service.getSalesForecast('A', 'biz-1', NOW);
 

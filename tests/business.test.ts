@@ -369,7 +369,7 @@ describe('Alayn Platform Business Logic Tests', () => {
             itemId: 'item-1',
             orderedQuantity: { toNumber: () => 10 },
             receivedQuantity: { toNumber: () => 0 },
-            unitCostPaise: 100,
+            unitCostPence: 100,
             item: { name: 'Milk' },
           },
         ],
@@ -380,7 +380,7 @@ describe('Alayn Platform Business Logic Tests', () => {
           itemId: 'item-1',
           orderedQuantity: new Prisma.Decimal(10),
           receivedQuantity: new Prisma.Decimal(10),
-          unitCostPaise: 100,
+          unitCostPence: 100,
         },
       ]);
       (prisma.purchaseOrder.update as jest.Mock).mockResolvedValue({ ...mockPO, status: 'RECEIVED' });
@@ -408,9 +408,9 @@ describe('Alayn Platform Business Logic Tests', () => {
         id: 'o-1',
         status: 'READY',
         source: 'COUNTER',
-        totalPaise: 1000,
-        payments: [{ status: 'CONFIRMED', amountPaise: 1000 }],
-        items: [{ menuItemId: 'menu-1', quantity: 2, unitPricePaise: 500, status: 'ORDERED' }],
+        totalPence: 1000,
+        payments: [{ status: 'CONFIRMED', amountPence: 1000 }],
+        items: [{ menuItemId: 'menu-1', quantity: 2, unitPricePence: 500, status: 'ORDERED' }],
         outlet: { vatRateDecimal: 0, serviceTaxRateDecimal: 0, vatRegistered: true },
       };
       (prisma.order.findFirst as jest.Mock).mockResolvedValue(mockOrder);
@@ -433,9 +433,9 @@ describe('Alayn Platform Business Logic Tests', () => {
         id: 'o-1',
         status: 'READY',
         source: 'COUNTER',
-        totalPaise: 1000,
-        payments: [{ status: 'CONFIRMED', amountPaise: 500 }], // ₹5 of ₹10 paid
-        items: [{ menuItemId: 'menu-1', quantity: 2, unitPricePaise: 500, status: 'ORDERED' }],
+        totalPence: 1000,
+        payments: [{ status: 'CONFIRMED', amountPence: 500 }], // ₹5 of ₹10 paid
+        items: [{ menuItemId: 'menu-1', quantity: 2, unitPricePence: 500, status: 'ORDERED' }],
         outlet: { vatRateDecimal: 0, serviceTaxRateDecimal: 0, vatRegistered: true },
       };
       (prisma.order.findFirst as jest.Mock).mockResolvedValue(mockOrder);
@@ -451,7 +451,7 @@ describe('Alayn Platform Business Logic Tests', () => {
 
       expect(result!.status).toBe('COMPLETED');
       expect(prisma.payment.create).toHaveBeenCalledWith({
-        data: { orderId: 'o-1', amountPaise: 500, method: 'CASH', status: 'CONFIRMED' },
+        data: { orderId: 'o-1', amountPence: 500, method: 'CASH', status: 'CONFIRMED' },
       });
     });
   });
@@ -461,7 +461,7 @@ describe('Alayn Platform Business Logic Tests', () => {
     const wasteService = new WasteService();
 
     it('should log waste and create negative stock ledger entry', async () => {
-      const mockItem = { id: 'item-1', name: 'Milk', unitCostPaise: 500 };
+      const mockItem = { id: 'item-1', name: 'Milk', unitCostPence: 500 };
       (prisma.item.findFirst as jest.Mock).mockResolvedValue(mockItem);
       (prisma.stockLedgerEntry.aggregate as jest.Mock).mockResolvedValue({ _sum: { change: { toNumber: () => 5.0 } } });
       (prisma.wasteLog.create as jest.Mock).mockResolvedValue({ id: 'w-1' });

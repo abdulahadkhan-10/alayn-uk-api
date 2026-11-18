@@ -89,12 +89,12 @@ export class SupplierController {
 
   getMarketCatalog = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { search, category, inStockOnly, maxPricePaise } = req.query;
+      const { search, category, inStockOnly, maxPricePence } = req.query;
       const items = await this.supplierService.getMarketCatalog({
         search: typeof search === 'string' ? search : undefined,
         category: typeof category === 'string' ? category : undefined,
         inStockOnly: inStockOnly === 'true',
-        maxPricePaise: maxPricePaise ? Number(maxPricePaise) : undefined,
+        maxPricePence: maxPricePence ? Number(maxPricePence) : undefined,
       });
       return sendSuccess(res, items);
     } catch (error) {
@@ -104,11 +104,11 @@ export class SupplierController {
 
   compareSuppliers = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { itemName, category, currentUnitCostPaise, unit } = req.query;
+      const { itemName, category, currentUnitCostPence, unit } = req.query;
       const result = await this.supplierService.compareSuppliers({
         itemName: typeof itemName === 'string' ? itemName : undefined,
         category: typeof category === 'string' ? category : undefined,
-        currentUnitCostPaise: currentUnitCostPaise ? Number(currentUnitCostPaise) : undefined,
+        currentUnitCostPence: currentUnitCostPence ? Number(currentUnitCostPence) : undefined,
         unit: typeof unit === 'string' ? unit : undefined,
       });
       return sendSuccess(res, result);

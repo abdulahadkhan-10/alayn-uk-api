@@ -49,8 +49,8 @@ export class WasteService {
     }
 
     // 3. Authoritative Moving Weighted Average Cost
-    const unitCostAtLoggingPaise = item.unitCostPaise;
-    const costAtLoggingPaise = Math.round(data.quantity * unitCostAtLoggingPaise);
+    const unitCostAtLoggingPence = item.unitCostPence;
+    const costAtLoggingPence = Math.round(data.quantity * unitCostAtLoggingPence);
 
     // 4. Transaction to create waste log and ledger entries using real targetOutletId
     const wasteLog = await prisma.$transaction(async (tx) => {
@@ -58,8 +58,8 @@ export class WasteService {
         data: {
           itemId: data.itemId,
           quantity: new Prisma.Decimal(data.quantity),
-          unitCostAtLoggingPaise,
-          costAtLoggingPaise,
+          unitCostAtLoggingPence,
+          costAtLoggingPence,
           reason: data.reason,
           notes: data.notes?.trim() || null,
           loggedById,
@@ -80,8 +80,8 @@ export class WasteService {
       return log;
     });
 
-    // 5. High-waste alert for loss >= £500 (50,000 paise)
-    if (costAtLoggingPaise >= 50000) {
+    // 5. High-waste alert for loss >= £500 (50,000 pence)
+    if (costAtLoggingPence >= 50000) {
       // Find businessId if not passed in
       let resolvedBusinessId = businessId;
       if (!resolvedBusinessId) {
@@ -96,7 +96,7 @@ export class WasteService {
         id: wasteLog.id,
         itemName: item.name,
         quantity: data.quantity,
-        costPaise: costAtLoggingPaise,
+        costPence: costAtLoggingPence,
         outletId: targetOutletId,
         businessId: resolvedBusinessId || undefined,
       }).catch(() => {});

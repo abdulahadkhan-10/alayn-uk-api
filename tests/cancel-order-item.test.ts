@@ -16,14 +16,14 @@ jest.mock('../src/config/prisma', () => {
 const chickenChilly = {
   id: 'item-chilly',
   quantity: 2,
-  unitPricePaise: 24_000,
+  unitPricePence: 24_000,
   status: 'PREPARING',
   menuItem: { name: 'Chicken Chilly' },
 };
 const biryani = {
   id: 'item-biryani',
   quantity: 1,
-  unitPricePaise: 30_000,
+  unitPricePence: 30_000,
   status: 'SENT_TO_KITCHEN',
   menuItem: { name: 'Dum Biryani' },
   modifiersJson: JSON.stringify([{ name: 'Half', isVariant: true }]),
@@ -78,7 +78,7 @@ describe('removing a wrongly punched item from a running bill', () => {
       where: { id: 'item-chilly', quantity: 2, status: 'PREPARING' },
       data: expect.objectContaining({
         quantity: 1,
-        subtotalPaise: 24_000,
+        subtotalPence: 24_000,
         cancelledQuantity: { increment: 1 },
       }),
     });
@@ -106,7 +106,7 @@ describe('removing a wrongly punched item from a running bill', () => {
         outletId: 'outlet-1',
         itemName: 'Chicken Chilly',
         quantity: 1,
-        amountPaise: 24_000,
+        amountPence: 24_000,
         reason: 'Customer did not order',
         itemStage: 'PREPARING',
         removedById: 'staff-user-1',
@@ -120,13 +120,13 @@ describe('removing a wrongly punched item from a running bill', () => {
     await remove('item-biryani');
 
     expect(prisma.orderItemRemoval.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ itemName: 'Dum Biryani (Half)', amountPaise: 30_000 }),
+      data: expect.objectContaining({ itemName: 'Dum Biryani (Half)', amountPence: 30_000 }),
     });
   });
 
   it('refuses once a payment has been taken, since the bill would drop below what was paid', async () => {
     (prisma.order.findFirst as jest.Mock).mockResolvedValue(
-      runningBill({ payments: [{ status: 'CONFIRMED', amountPaise: 78_000 }] })
+      runningBill({ payments: [{ status: 'CONFIRMED', amountPence: 78_000 }] })
     );
 
     await expect(remove('item-chilly')).rejects.toMatchObject({ code: 'ORDER_ALREADY_PAID' });
@@ -135,7 +135,7 @@ describe('removing a wrongly punched item from a running bill', () => {
 
   it('still allows removal while a payment is only pending (e.g. card at counter not yet swiped)', async () => {
     (prisma.order.findFirst as jest.Mock).mockResolvedValue(
-      runningBill({ payments: [{ status: 'PENDING', amountPaise: 78_000 }] })
+      runningBill({ payments: [{ status: 'PENDING', amountPence: 78_000 }] })
     );
 
     await remove('item-chilly');

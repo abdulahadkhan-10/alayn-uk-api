@@ -10,7 +10,6 @@ export async function repairAndSyncMigrations() {
     await prisma.$executeRawUnsafe(`ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'DELIVEROO';`);
     await prisma.$executeRawUnsafe(`ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'UBER_EATS';`);
     await prisma.$executeRawUnsafe(`ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'JUST_EAT';`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE "Payment" DROP COLUMN IF EXISTS "platformDiscountPaise";`);
 
     // 2. Align _prisma_migrations checksums with migration.sql files on disk
     const migrationsDir = path.resolve(__dirname, '../../prisma/migrations');
@@ -74,7 +73,7 @@ export async function ensureModifierTables() {
         "id" UUID NOT NULL,
         "groupId" UUID NOT NULL,
         "name" TEXT NOT NULL,
-        "pricePaise" INTEGER NOT NULL DEFAULT 0,
+        "pricePence" INTEGER NOT NULL DEFAULT 0,
         "isVeg" BOOLEAN NOT NULL DEFAULT true,
         "dietaryType" "DietaryType" NOT NULL DEFAULT 'VEG',
         "isActive" BOOLEAN NOT NULL DEFAULT true,

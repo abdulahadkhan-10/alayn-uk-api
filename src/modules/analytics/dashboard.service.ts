@@ -75,9 +75,9 @@ function parseOperatingDays(json: string | null): Set<number> | null {
   }
 }
 
-function formatCurrency(paise: number) {
-  const sign = paise < 0 ? '-' : '';
-  return `${sign}£${(Math.abs(paise) / 100).toLocaleString('en-GB', { maximumFractionDigits: 0 })}`;
+function formatCurrency(pence: number) {
+  const sign = pence < 0 ? '-' : '';
+  return `${sign}£${(Math.abs(pence) / 100).toLocaleString('en-GB', { maximumFractionDigits: 0 })}`;
 }
 
 function percentChange(current: number, previous: number) {
@@ -118,25 +118,25 @@ export class DashboardService {
   private async periodFigures(scope: ScopeFilter, startDate: Date, endDate: Date) {
     const settledOrders = await prisma.order.findMany({
       where: { ...scope, status: SETTLED, createdAt: { gte: startDate, lte: endDate }, deletedAt: null },
-      select: { id: true, subtotalPaise: true, discountPaise: true, vatPaise: true, serviceTaxPaise: true },
+      select: { id: true, subtotalPence: true, discountPence: true, vatPence: true, serviceTaxPence: true },
     });
     // Net food sales (after discount). VAT is the government's; service charge is reported separately.
-    const revenuePaise = settledOrders.reduce((sum, o) => sum + o.subtotalPaise - o.discountPaise, 0);
-    const taxPaise = settledOrders.reduce((sum, o) => sum + o.vatPaise, 0);
-    const serviceChargePaise = settledOrders.reduce((sum, o) => sum + o.serviceTaxPaise, 0);
+    const revenuePence = settledOrders.reduce((sum, o) => sum + o.subtotalPence - o.discountPence, 0);
+    const taxPence = settledOrders.reduce((sum, o) => sum + o.vatPence, 0);
+    const serviceChargePence = settledOrders.reduce((sum, o) => sum + o.serviceTaxPence, 0);
 
     const waste = await prisma.wasteLog.findMany({
       where: { ...scope, createdAt: { gte: startDate, lte: endDate } },
-      select: { costAtLoggingPaise: true },
+      select: { costAtLoggingPence: true },
     });
-    const wasteCostPaise = waste.reduce((sum, w) => sum + w.costAtLoggingPaise, 0);
+    const wasteCostPence = waste.reduce((sum, w) => sum + w.costAtLoggingPence, 0);
 
     return {
       orderCount: settledOrders.length,
-      revenuePaise,
-      taxPaise,
-      serviceChargePaise,
-      wasteCostPaise,
+      revenuePence,
+      taxPence,
+      serviceChargePence,
+      wasteCostPence,
     };
   }
 
@@ -161,18 +161,18 @@ export class DashboardService {
         createdAt: { gte: startDate, lte: endDate },
         deletedAt: null,
       },
-      select: { totalPaise: true },
+      select: { totalPence: true },
     });
-    const openBillsPaise = openOrders.reduce((sum, o) => sum + o.totalPaise, 0);
+    const openBillsPence = openOrders.reduce((sum, o) => sum + o.totalPence, 0);
 
-    const revenue = percentChange(current.revenuePaise, previous.revenuePaise);
+    const revenue = percentChange(current.revenuePence, previous.revenuePence);
     // Menu items aren't linked to stock (kitchens don't measure every ingredient), so there is no food
     // cost or margin to show; what the owner does know is the stock they logged as wasted
-    const waste = percentChange(current.wasteCostPaise, previous.wasteCostPaise);
+    const waste = percentChange(current.wasteCostPence, previous.wasteCostPence);
 
-    const avgOrderPaise = current.orderCount > 0 ? Math.round(current.revenuePaise / current.orderCount) : 0;
-    const prevAvgOrderPaise = previous.orderCount > 0 ? Math.round(previous.revenuePaise / previous.orderCount) : 0;
-    const avgOrder = percentChange(avgOrderPaise, prevAvgOrderPaise);
+    const avgOrderPence = current.orderCount > 0 ? Math.round(current.revenuePence / current.orderCount) : 0;
+    const prevAvgOrderPence = previous.orderCount > 0 ? Math.round(previous.revenuePence / previous.orderCount) : 0;
+    const avgOrder = percentChange(avgOrderPence, prevAvgOrderPence);
     const orders = percentChange(current.orderCount, previous.orderCount);
 
     // 5. Active staff
@@ -191,14 +191,14 @@ export class DashboardService {
         previous: describeRange(previousRange, now),
       },
       totalRevenue: {
-        value: formatCurrency(current.revenuePaise),
-        prev: formatCurrency(previous.revenuePaise),
+        value: formatCurrency(current.revenuePence),
+        prev: formatCurrency(previous.revenuePence),
         change: revenue.change,
         isPositive: revenue.increased,
       },
       avgOrderValue: {
-        value: formatCurrency(avgOrderPaise),
-        prev: formatCurrency(prevAvgOrderPaise),
+        value: formatCurrency(avgOrderPence),
+        prev: formatCurrency(prevAvgOrderPence),
         change: avgOrder.change,
         isPositive: avgOrder.increased,
       },
@@ -210,16 +210,16 @@ export class DashboardService {
       },
       // Less waste is the good direction
       waste: {
-        value: formatCurrency(current.wasteCostPaise),
-        prev: formatCurrency(previous.wasteCostPaise),
+        value: formatCurrency(current.wasteCostPence),
+        prev: formatCurrency(previous.wasteCostPence),
         change: waste.change,
-        isPositive: current.wasteCostPaise <= previous.wasteCostPaise,
+        isPositive: current.wasteCostPence <= previous.wasteCostPence,
       },
       laborCosts: { value: `${activeStaffCount} Staff`, change: `${diffStaff >= 0 ? '+' : ''}${diffStaff}`, isPositive: diffStaff >= 0 },
       // Reported separately from revenue
-      taxCollected: { value: formatCurrency(current.taxPaise) }, // VAT only
-      serviceCharge: { value: formatCurrency(current.serviceChargePaise) },
-      openBills: { value: formatCurrency(openBillsPaise), count: openOrders.length },
+      taxCollected: { value: formatCurrency(current.taxPence) }, // VAT only
+      serviceCharge: { value: formatCurrency(current.serviceChargePence) },
+      openBills: { value: formatCurrency(openBillsPence), count: openOrders.length },
     };
   }
 
@@ -229,7 +229,7 @@ export class DashboardService {
 
     const periodOrders = await prisma.order.findMany({
       where: { ...scope, status: SETTLED, createdAt: { gte: startDate, lte: endDate }, deletedAt: null },
-      select: { createdAt: true, subtotalPaise: true },
+      select: { createdAt: true, subtotalPence: true },
     });
 
     // 2-hour buckets on clock hours, UK time, in business-day order: from the bucket holding 5 AM
@@ -245,7 +245,7 @@ export class DashboardService {
     const totals = new Array(12).fill(0);
     for (const order of periodOrders) {
       const { hour } = outletLocalParts(new Date(order.createdAt));
-      totals[bucketOf(hour)] += order.subtotalPaise;
+      totals[bucketOf(hour)] += order.subtotalPence;
     }
 
     // Show the span the outlet actually trades in; default to 10 AM – 10 PM when there are no sales
@@ -308,7 +308,7 @@ export class DashboardService {
       where: {
         order: { ...scope, status: SETTLED, createdAt: { gte: startDate, lte: endDate }, deletedAt: null },
       },
-      _sum: { quantity: true, subtotalPaise: true },
+      _sum: { quantity: true, subtotalPence: true },
       orderBy: { _sum: { quantity: 'desc' } },
       take: 5,
     });
@@ -328,7 +328,7 @@ export class DashboardService {
       return {
         name: itemInfo?.name || 'Item',
         volume: g._sum.quantity || 0,
-        revenue: Math.round((g._sum.subtotalPaise || 0) / 100),
+        revenue: Math.round((g._sum.subtotalPence || 0) / 100),
         category: itemInfo?.category?.name || 'General',
       };
     });
@@ -346,7 +346,7 @@ export class DashboardService {
         createdAt: { lt: since },
         orderItems: { none: { order: { ...orderScope, status: SETTLED, deletedAt: null, createdAt: { gte: since } } } },
       },
-      select: { id: true, name: true, pricePaise: true, category: { select: { name: true } } },
+      select: { id: true, name: true, pricePence: true, category: { select: { name: true } } },
       take: 200,
     });
     if (items.length === 0) return { days: SLOW_MOVER_DAYS, items: [] };
@@ -365,7 +365,7 @@ export class DashboardService {
       items: items
         .map((i) => {
           const last = lastSold.get(i.id);
-          return { id: i.id, name: i.name, category: i.category?.name ?? 'General', price: Math.round(i.pricePaise / 100), lastSoldDaysAgo: last ? daysAgo(last) : null };
+          return { id: i.id, name: i.name, category: i.category?.name ?? 'General', price: Math.round(i.pricePence / 100), lastSoldDaysAgo: last ? daysAgo(last) : null };
         })
         // Longest-unsold first; never sold at all goes to the top
         .sort((a, b) => (b.lastSoldDaysAgo ?? Infinity) - (a.lastSoldDaysAgo ?? Infinity) || a.name.localeCompare(b.name)),
@@ -412,7 +412,7 @@ export class DashboardService {
               deletedAt: null,
               createdAt: { gte: new Date(todayStart.getTime() - historyDays * ONE_DAY_MS), lte: new Date(todayStart.getTime() + ONE_DAY_MS - 1) },
             },
-            select: { outletId: true, createdAt: true, subtotalPaise: true },
+            select: { outletId: true, createdAt: true, subtotalPence: true },
           }),
           prisma.outletHoliday.findMany({
             where: {
@@ -424,10 +424,10 @@ export class DashboardService {
         ])
       : [[], []];
 
-    const revenue = new Map<string, number>(); // `${outletId}|${date}` → paise
+    const revenue = new Map<string, number>(); // `${outletId}|${date}` → pence
     for (const o of orders) {
       const key = `${o.outletId}|${isoDate(businessParts(o.createdAt))}`;
-      revenue.set(key, (revenue.get(key) ?? 0) + o.subtotalPaise);
+      revenue.set(key, (revenue.get(key) ?? 0) + o.subtotalPence);
     }
     // OutletHoliday.date is a calendar date (stored as UTC midnight)
     const holidaySet = new Set(holidays.map((h) => `${h.outletId}|${h.date.toISOString().slice(0, 10)}`));
@@ -450,7 +450,7 @@ export class DashboardService {
 
     const combined = combineForecasts(perOutlet);
     const todayDate = calendar[historyDays].date;
-    const pounds = (paise: number | null) => (paise === null ? null : Math.round(paise / 100));
+    const pounds = (pence: number | null) => (pence === null ? null : Math.round(pence / 100));
     const points = combined.points.length
       ? combined.points
       : calendar.slice(historyDays - displayDays).map((d) => ({
@@ -536,20 +536,20 @@ export class DashboardService {
     const forecastToday = forecasting && today && !today.closed && today.projected !== null ? today.projected * 100 : null;
 
     const pace = computeTodayPace(orders, now, forecastToday);
-    const pounds = (paise: number | null) => (paise === null ? null : Math.round(paise / 100));
+    const pounds = (pence: number | null) => (pence === null ? null : Math.round(pence / 100));
     return {
       status: pace.status,
       weekday: pace.weekday,
       typicalDays: pace.typicalDays,
-      soFar: pounds(pace.soFarPaise)!,
-      forecastToday: pounds(pace.forecastTodayPaise),
-      expectedByNow: pounds(pace.expectedByNowPaise),
+      soFar: pounds(pace.soFarPence)!,
+      forecastToday: pounds(pace.forecastTodayPence),
+      expectedByNow: pounds(pace.expectedByNowPence),
       pacePct: pace.pacePct,
       asOf: instant12(now),
       slots: pace.slots.map((s) => ({
         label: s.label,
-        actual: s.isFuture ? null : pounds(s.actualPaise)!,
-        typical: pounds(s.typicalPaise)!,
+        actual: s.isFuture ? null : pounds(s.actualPence)!,
+        typical: pounds(s.typicalPence)!,
         isNow: s.isNow,
       })),
     };

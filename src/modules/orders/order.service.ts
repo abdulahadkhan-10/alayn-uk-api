@@ -11,7 +11,7 @@ import { priceItemWithModifiers } from './modifierPricing';
 import {
   PaymentMethodCode,
   SettlementPaymentInput,
-  confirmedPaidPaise,
+  confirmedPaidPence,
   describePayments,
   formatMoney,
   isOnlineMethod,
@@ -34,13 +34,13 @@ function outletBillRates(outlet: { vatRateDecimal: DecimalLike; serviceTaxRateDe
 /** Bill amounts + the configured rate snapshot, in Order column names. */
 function billToOrderFields(bill: BillTotals, rates: BillRates) {
   return {
-    subtotalPaise: bill.subtotalPaise,
-    discountPaise: bill.discountPaise,
-    serviceTaxPaise: bill.serviceChargePaise,
-    vatPaise: bill.vatPaise,
-    taxPaise: bill.vatPaise + bill.serviceChargePaise,
-    roundOffPaise: bill.roundOffPaise,
-    totalPaise: bill.totalPaise,
+    subtotalPence: bill.subtotalPence,
+    discountPence: bill.discountPence,
+    serviceTaxPence: bill.serviceChargePence,
+    vatPence: bill.vatPence,
+    taxPence: bill.vatPence + bill.serviceChargePence,
+    roundOffPence: bill.roundOffPence,
+    totalPence: bill.totalPence,
     vatRate: new Prisma.Decimal(rates.vatRate),
     serviceChargeRate: new Prisma.Decimal(rates.serviceChargeRate),
   };
@@ -92,7 +92,7 @@ export class OrderService {
     const bill = calculateBill(billableItems, rates, {
       dineIn: isDineIn(order.source),
       serviceChargeWaived: order.serviceChargeWaived,
-      discountPaise: order.discountPaise,
+      discountPence: order.discountPence,
       vatRegistered: order.outlet.vatRegistered,
     });
 
@@ -135,13 +135,13 @@ export class OrderService {
           orderId: { not: orderId },
           order: { outletId },
         },
-        select: { amountPaise: true, order: { select: { orderNumber: true } } },
+        select: { amountPence: true, order: { select: { orderNumber: true } } },
       });
       if (earlier) {
         const bill = earlier.order?.orderNumber ? `bill #${earlier.order.orderNumber}` : 'another bill';
         throw new AppError(
           'DUPLICATE_PAYMENT_REFERENCE',
-          `${label} ${p.reference} was already used on ${bill} (${formatMoney(earlier.amountPaise)}). Check it, or settle anyway if it is correct.`,
+          `${label} ${p.reference} was already used on ${bill} (${formatMoney(earlier.amountPence)}). Check it, or settle anyway if it is correct.`,
           409
         );
       }
@@ -306,8 +306,8 @@ export class OrderService {
     const itemDetails: {
       menuItemId: string;
       quantity: number;
-      unitPricePaise: number;
-      subtotalPaise: number;
+      unitPricePence: number;
+      subtotalPence: number;
       notes?: string;
       modifiersJson?: string | null;
     }[] = [];
@@ -351,14 +351,14 @@ export class OrderService {
         menuItem.modifierGroups.map((link) => link.modifierGroup),
         selectedModifierIds,
       );
-      const effectiveUnitPrice = priced.unitPricePaise;
+      const effectiveUnitPrice = priced.unitPricePence;
       const modifiersSnapshot = priced.modifiers;
 
       itemDetails.push({
         menuItemId: item.menuItemId,
         quantity: item.quantity,
-        unitPricePaise: effectiveUnitPrice,
-        subtotalPaise: effectiveUnitPrice * item.quantity,
+        unitPricePence: effectiveUnitPrice,
+        subtotalPence: effectiveUnitPrice * item.quantity,
         notes: item.notes,
         modifiersJson: modifiersSnapshot.length > 0 ? JSON.stringify(modifiersSnapshot) : null,
       });
@@ -366,14 +366,14 @@ export class OrderService {
 
     // 3. Price a new bill with the outlet's current rates (snapshotted on the order)
     const rawDiscount = isCustomerOrder ? undefined : (data as any).discountAmount;
-    const discountPaise = isCustomerOrder ? 0 : (data as any).discountPaise ?? (rawDiscount ? Math.round(rawDiscount * 100) : 0);
+    const discountPence = isCustomerOrder ? 0 : (data as any).discountPence ?? (rawDiscount ? Math.round(rawDiscount * 100) : 0);
     const couponCode = !isCustomerOrder && (data as any).couponCode ? String((data as any).couponCode).trim().toUpperCase() : undefined;
     const couponId = isCustomerOrder ? undefined : (data as any).couponId || undefined;
 
     const rates = outletBillRates(outlet);
     const bill = calculateBill(itemDetails, rates, {
       dineIn: isDineIn(resolvedSource),
-      discountPaise,
+      discountPence,
       vatRegistered: outlet.vatRegistered,
     });
 
@@ -443,7 +443,7 @@ export class OrderService {
           await tx.payment.create({
             data: {
               orderId: createdOrder.id,
-              amountPaise: createdOrder.totalPaise,
+              amountPence: createdOrder.totalPence,
               method: (data as any).paymentMethod,
               status: (data as any).paymentStatus || 'PENDING',
             },
@@ -459,7 +459,7 @@ export class OrderService {
       NotificationService.notifyOrderPlaced({
         id: saved.order.id,
         orderNumber: saved.order.orderNumber,
-        totalPaise: saved.order.totalPaise,
+        totalPence: saved.order.totalPence,
         outletId: saved.order.outletId,
         businessId: outlet.businessId,
       }).catch(() => { });
@@ -493,16 +493,16 @@ export class OrderService {
       orderNumber: formattedOrderNo,
       orderSource: order.source,
       tableNo: order.tableNumber !== null && order.tableNumber !== undefined ? String(order.tableNumber) : undefined,
-      subtotal: (order.subtotalPaise || 0) / 100,
-      taxAmount: (order.taxPaise || 0) / 100,
-      vatAmount: (order.vatPaise || 0) / 100,
-      serviceTaxAmount: (order.serviceTaxPaise || 0) / 100, // kept for older screens
-      serviceChargeAmount: (order.serviceTaxPaise || 0) / 100,
-      discountAmount: (order.discountPaise || 0) / 100,
+      subtotal: (order.subtotalPence || 0) / 100,
+      taxAmount: (order.taxPence || 0) / 100,
+      vatAmount: (order.vatPence || 0) / 100,
+      serviceTaxAmount: (order.serviceTaxPence || 0) / 100, // kept for older screens
+      serviceChargeAmount: (order.serviceTaxPence || 0) / 100,
+      discountAmount: (order.discountPence || 0) / 100,
       couponCode: order.couponCode || null,
       couponId: order.couponId || null,
-      roundOffAmount: (order.roundOffPaise || 0) / 100,
-      totalAmount: (order.totalPaise || 0) / 100,
+      roundOffAmount: (order.roundOffPence || 0) / 100,
+      totalAmount: (order.totalPence || 0) / 100,
       // Rates used on THIS bill (null on bills created before snapshots existed)
       vatRate: order.vatRate !== null && order.vatRate !== undefined ? Number(order.vatRate) : null,
       serviceChargeRate:
@@ -514,19 +514,19 @@ export class OrderService {
       placedByName: order.placedByName || (order.source === 'QR' ? 'Customer (QR)' : 'Staff'),
       placedByRole: order.placedByRole || (order.source === 'QR' ? 'QR' : 'STAFF'),
       // paymentMethod, paymentStatus, paymentSplits, paidAmount, balanceDue
-      ...summarizePayments(order.payments || [], order.totalPaise || 0),
+      ...summarizePayments(order.payments || [], order.totalPence || 0),
       items: (order.items || []).map((item: any) => ({
         ...item,
-        unitPrice: (item.unitPricePaise || 0) / 100,
-        subtotal: (item.subtotalPaise || 0) / 100,
+        unitPrice: (item.unitPricePence || 0) / 100,
+        subtotal: (item.subtotalPence || 0) / 100,
         modifiers: item.modifiers || (item.modifiersJson ? (() => {
           try { return typeof item.modifiersJson === 'string' ? JSON.parse(item.modifiersJson) : item.modifiersJson; } catch { return []; }
         })() : []),
       })),
       orderItems: (order.items || []).map((item: any) => ({
         ...item,
-        unitPrice: (item.unitPricePaise || 0) / 100,
-        subtotal: (item.subtotalPaise || 0) / 100,
+        unitPrice: (item.unitPricePence || 0) / 100,
+        subtotal: (item.subtotalPence || 0) / 100,
         modifiers: item.modifiers || (item.modifiersJson ? (() => {
           try { return typeof item.modifiersJson === 'string' ? JSON.parse(item.modifiersJson) : item.modifiersJson; } catch { return []; }
         })() : []),
@@ -575,7 +575,7 @@ export class OrderService {
   async createPayment(
     outletId: string,
     orderId: string,
-    data: { amountPaise: number; method: PaymentMethodCode; status: 'PENDING' | 'CONFIRMED' | 'FAILED' },
+    data: { amountPence: number; method: PaymentMethodCode; status: 'PENDING' | 'CONFIRMED' | 'FAILED' },
     businessId?: string | null
   ) {
     const order = await this.orderRepository.findOrderById(outletId, orderId, businessId);
@@ -585,7 +585,7 @@ export class OrderService {
     if (order.status === 'CANCELLED') {
       throw new AppError('INVALID_STATE_TRANSITION', 'Cannot record payment for a cancelled order', 400);
     }
-    return this.orderRepository.createPayment(orderId, data.amountPaise, data.method, data.status);
+    return this.orderRepository.createPayment(orderId, data.amountPence, data.method, data.status);
   }
 
   async updateOrderStatus(
@@ -603,7 +603,7 @@ export class OrderService {
       couponCode?: string;
       couponId?: string;
       discountAmount?: number;
-      discountPaise?: number;
+      discountPence?: number;
     },
     settlement?: {
       payments?: SettlementPaymentInput[];
@@ -652,7 +652,7 @@ export class OrderService {
     if (status === 'COMPLETED') {
       let appliedCouponId: string | null = null;
       const rawCode = couponData?.couponCode?.trim().toUpperCase();
-      let discountPaise = couponData?.discountPaise ?? (couponData?.discountAmount ? Math.round(couponData.discountAmount * 100) : null);
+      let discountPence = couponData?.discountPence ?? (couponData?.discountAmount ? Math.round(couponData.discountAmount * 100) : null);
       let couponId = couponData?.couponId || null;
 
       if (rawCode) {
@@ -666,17 +666,17 @@ export class OrderService {
         if (coupon) {
           couponId = coupon.id;
           appliedCouponId = coupon.id;
-          if (discountPaise == null) {
+          if (discountPence == null) {
             if (coupon.discountType === 'PERCENTAGE') {
               const rate = Number(coupon.discountValue);
-              discountPaise = Math.round((order.subtotalPaise * rate) / 100);
-              if (coupon.maxDiscountPaise != null) {
-                discountPaise = Math.min(discountPaise, coupon.maxDiscountPaise);
+              discountPence = Math.round((order.subtotalPence * rate) / 100);
+              if (coupon.maxDiscountPence != null) {
+                discountPence = Math.min(discountPence, coupon.maxDiscountPence);
               }
             } else {
-              discountPaise = Math.round(Number(coupon.discountValue) * 100);
+              discountPence = Math.round(Number(coupon.discountValue) * 100);
             }
-            discountPaise = Math.min(discountPaise, order.subtotalPaise);
+            discountPence = Math.min(discountPence, order.subtotalPence);
           }
         }
       }
@@ -695,8 +695,8 @@ export class OrderService {
           data: {
             status: 'COMPLETED',
             settlementKey: settlementKey || null,
-            ...(discountPaise != null || rawCode || couponId
-              ? { discountPaise: discountPaise ?? order.discountPaise, couponCode: rawCode || null, couponId: couponId || null }
+            ...(discountPence != null || rawCode || couponId
+              ? { discountPence: discountPence ?? order.discountPence, couponCode: rawCode || null, couponId: couponId || null }
               : {}),
             ...(customerName ? { customerName } : {}),
             ...(customerPhone ? { customerPhone } : {}),
@@ -712,7 +712,7 @@ export class OrderService {
 
         // 0. Final bill calculation — after settlement the bill is frozen
         const finalBill = await this.recalculateOrder(orderId, tx);
-        const balanceDuePaise = finalBill.totalPaise - confirmedPaidPaise(finalBill.payments);
+        const balanceDuePence = finalBill.totalPence - confirmedPaidPence(finalBill.payments);
 
         // Pending intents (POS checkout choice, QR "pay at counter") are replaced by what was actually taken
         await tx.payment.updateMany({
@@ -723,7 +723,7 @@ export class OrderService {
         // 1. Record the payments that settle the balance
         let paymentNote: string | undefined;
         if (splitPayments) {
-          const toRecord = validateSettlementPayments(splitPayments, balanceDuePaise);
+          const toRecord = validateSettlementPayments(splitPayments, balanceDuePence);
           if (!settlement?.allowDuplicateReference) {
             await this.assertReferencesUnused(tx, toRecord, orderId, order.outletId);
           }
@@ -732,7 +732,7 @@ export class OrderService {
             await tx.payment.create({
               data: {
                 orderId,
-                amountPaise: p.amountPaise,
+                amountPence: p.amountPence,
                 method: p.method,
                 status: 'CONFIRMED',
                 reference: p.reference,
@@ -741,7 +741,7 @@ export class OrderService {
             });
           }
           paymentNote = `Paid ${describePayments(toRecord)}`;
-        } else if (balanceDuePaise > 0) {
+        } else if (balanceDuePence > 0) {
           // Single payment (original flow): the whole remaining balance in one method
           let method: PaymentMethodCode = paymentMethod || 'CASH';
           if (!paymentMethod && comment) {
@@ -757,13 +757,13 @@ export class OrderService {
           if (isOnlineMethod(method)) {
             throw new AppError(
               'PAYMENT_NOT_VERIFIED',
-              `Confirm the ${method === 'CARD' ? 'card' : 'partner'} payment of ${formatMoney(balanceDuePaise)} was received before settling.`,
+              `Confirm the ${method === 'CARD' ? 'card' : 'partner'} payment of ${formatMoney(balanceDuePence)} was received before settling.`,
               400
             );
           }
 
           await tx.payment.create({
-            data: { orderId, amountPaise: balanceDuePaise, method, status: 'CONFIRMED' },
+            data: { orderId, amountPence: balanceDuePence, method, status: 'CONFIRMED' },
           });
         }
 
@@ -952,7 +952,7 @@ export class OrderService {
           where: unchanged,
           data: {
             quantity: remainingQty,
-            subtotalPaise: remainingQty * item.unitPricePaise,
+            subtotalPence: remainingQty * item.unitPricePence,
             cancelledQuantity: { increment: qtyToCancel },
             cancelledAt,
           },
@@ -981,7 +981,7 @@ export class OrderService {
           outletId: order.outletId,
           itemName: removalItemName(item),
           quantity: qtyToCancel,
-          amountPaise: qtyToCancel * item.unitPricePaise,
+          amountPence: qtyToCancel * item.unitPricePence,
           reason: reason || 'Punched by mistake',
           itemStage: item.status,
           removedById: removedBy?.id || null,
@@ -1144,15 +1144,15 @@ export class OrderService {
         throw new AppError('NO_ACTIVE_ORDER', 'There is no open bill on this table.', 404);
       }
 
-      const duePaise = order.totalPaise - confirmedPaidPaise(order.payments);
-      if (duePaise > 0) {
+      const duePence = order.totalPence - confirmedPaidPence(order.payments);
+      if (duePence > 0) {
         // The diner's latest choice replaces what they (or the till) said before
         await tx.payment.updateMany({
           where: { orderId: order.id, status: 'PENDING' },
           data: { status: 'VOID' },
         });
         await tx.payment.create({
-          data: { orderId: order.id, amountPaise: duePaise, method: data.paymentMethod, status: 'PENDING', reference },
+          data: { orderId: order.id, amountPence: duePence, method: data.paymentMethod, status: 'PENDING', reference },
         });
       }
 
@@ -1160,17 +1160,17 @@ export class OrderService {
         where: { id: order.id },
         include: { items: { include: { menuItem: true } }, payments: true },
       });
-      return { order: updated, duePaise };
+      return { order: updated, duePence };
     });
 
-    if (result.order && result.duePaise > 0) {
+    if (result.order && result.duePence > 0) {
       NotificationService.notifyBillRequested({
         id: result.order.id,
         orderNumber: result.order.orderNumber,
         tableNumber: result.order.tableNumber,
         outletId: result.order.outletId,
         businessId: outlet?.businessId,
-        amountPaise: result.duePaise,
+        amountPence: result.duePence,
         method: data.paymentMethod,
         reference,
       }).catch(() => { });

@@ -48,7 +48,7 @@ export class InventoryService {
     referenceId?: string,
     loggedById?: string,
     businessId?: string | null,
-    unitCostPaise?: number
+    unitCostPence?: number
   ) {
     const item = await this.inventoryRepository.findItemById(outletId, itemId, businessId);
     if (!item) {
@@ -74,8 +74,8 @@ export class InventoryService {
 
     if (reason === 'WASTE' && change < 0) {
       const wasteQty = Math.abs(change);
-      const unitCostAtLoggingPaise = item.unitCostPaise;
-      const costAtLoggingPaise = Math.round(wasteQty * unitCostAtLoggingPaise);
+      const unitCostAtLoggingPence = item.unitCostPence;
+      const costAtLoggingPence = Math.round(wasteQty * unitCostAtLoggingPence);
       
       let userId = loggedById;
       if (!userId) {
@@ -88,21 +88,21 @@ export class InventoryService {
           data: {
             itemId,
             quantity: new Prisma.Decimal(wasteQty),
-            unitCostAtLoggingPaise,
-            costAtLoggingPaise,
+            unitCostAtLoggingPence,
+            costAtLoggingPence,
             reason: 'SPOILAGE',
             outletId: item.outletId,
             loggedById: userId,
           },
         });
 
-        // Trigger high waste notification if loss is >= £500 (50,000 paise)
-        if (costAtLoggingPaise >= 50000) {
+        // Trigger high waste notification if loss is >= £500 (50,000 pence)
+        if (costAtLoggingPence >= 50000) {
           NotificationService.notifyHighWasteLogged({
             id: wasteLog.id,
             itemName: item.name,
             quantity: wasteQty,
-            costPaise: costAtLoggingPaise,
+            costPence: costAtLoggingPence,
             outletId: item.outletId,
             businessId: itemBusinessId,
           }).catch(() => {});
@@ -118,21 +118,21 @@ export class InventoryService {
           },
         });
       });
-    } else if (change > 0 && typeof unitCostPaise === 'number' && unitCostPaise > 0) {
+    } else if (change > 0 && typeof unitCostPence === 'number' && unitCostPence > 0) {
       // Re-calculate Moving Weighted Average Cost (WAC) upon positive stock addition
       const currentStock = await this.inventoryRepository.getStockBalance(itemId);
-      const newCostPaise = computeMovingAverageCost({
+      const newCostPence = computeMovingAverageCost({
         currentStock,
-        currentUnitCostPaise: item.unitCostPaise,
+        currentUnitCostPence: item.unitCostPence,
         incomingQty: change,
-        incomingUnitCostPaise: unitCostPaise,
+        incomingUnitCostPence: unitCostPence,
       });
 
       result = await prisma.$transaction(async (tx) => {
-        if (newCostPaise !== item.unitCostPaise) {
+        if (newCostPence !== item.unitCostPence) {
           await tx.item.update({
             where: { id: itemId },
-            data: { unitCostPaise: newCostPaise },
+            data: { unitCostPence: newCostPence },
           });
         }
 

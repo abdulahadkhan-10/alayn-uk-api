@@ -4,16 +4,16 @@ import { renderReportPdf, reportFileName, trendModel } from '../src/modules/repo
 import { ReportData, Totals, BreakdownRow, ItemRow } from '../src/modules/reports/aggregate';
 
 const totals = (n: number): Totals => ({
-  netSalesPaise: 1234500 * n, orders: 40 * n, avgOrderPaise: 30862, discountPaise: 5000, taxPaise: 61725,
-  serviceChargePaise: 0, cancelledOrders: 2, cancelledPaise: 9000, wastePaise: 12000, itemsSold: 90 * n,
+  netSalesPence: 1234500 * n, orders: 40 * n, avgOrderPence: 30862, discountPence: 5000, taxPence: 61725,
+  serviceChargePence: 0, cancelledOrders: 2, cancelledPence: 9000, wastePence: 12000, itemsSold: 90 * n,
 });
 const row = (i: number): BreakdownRow => ({
-  key: `k${i}`, label: `Row ${i}`, current: { netSalesPaise: 100000 * (i + 1), orders: 5 }, previous: { netSalesPaise: 90000, orders: 4 },
+  key: `k${i}`, label: `Row ${i}`, current: { netSalesPence: 100000 * (i + 1), orders: 5 }, previous: { netSalesPence: 90000, orders: 4 },
   changePct: 11.1, sharePct: 20,
 });
 const item = (i: number): ItemRow => ({
-  menuItemId: `m${i}`, name: `Item number ${i}`, category: 'Mains', qty: 10 + i, salesPaise: 50000 + i * 100,
-  prevQty: 8, prevSalesPaise: 40000, changePct: 25,
+  menuItemId: `m${i}`, name: `Item number ${i}`, category: 'Mains', qty: 10 + i, salesPence: 50000 + i * 100,
+  prevQty: 8, prevSalesPence: 40000, changePct: 25,
 });
 const start = new Date('2026-09-30T23:30:00.000Z').toISOString(); // 1 Oct 2026, 5 AM India time (business day start)
 const end = new Date('2026-10-31T23:29:59.999Z').toISOString(); // end of 31 Oct 2026's business day (4:59 AM 1 Nov)
@@ -22,8 +22,8 @@ function report(over: Partial<ReportData> = {}, items = 0): ReportData & { scope
   return {
     period: { start, end, label: '1–31 Oct 2026' },
     comparison: { start, end, label: '1–30 Sep 2026', compareLabel: 'vs 1–30 Sep 2026' },
-    totals: { current: totals(1), previous: totals(1), changePct: { netSalesPaise: 12.5, wastePaise: -10, orders: null } },
-    trend: { granularity: 'day', current: [{ label: '1 Oct', start, netSalesPaise: 50000, orders: 3, wastePaise: 0 }], previous: [{ label: '1 Sep', start, netSalesPaise: 40000, orders: 2, wastePaise: 0 }] },
+    totals: { current: totals(1), previous: totals(1), changePct: { netSalesPence: 12.5, wastePence: -10, orders: null } },
+    trend: { granularity: 'day', current: [{ label: '1 Oct', start, netSalesPence: 50000, orders: 3, wastePence: 0 }], previous: [{ label: '1 Sep', start, netSalesPence: 40000, orders: 2, wastePence: 0 }] },
     channels: [row(0), row(1)], payments: [row(0)], categories: [row(0)], outlets: [row(0), row(1)],
     hours: [row(0)], weekdays: [row(0)], waste: [row(0)],
     items: Array.from({ length: items }, (_, i) => item(i)),
@@ -58,7 +58,7 @@ describe('report pdf', () => {
   });
 
   it('a 45-day report merges bars in the chart but lists every day in the trend table', () => {
-    const day = (i: number, month: string) => ({ label: `${i + 1} ${month}`, start, netSalesPaise: 1000 * (i + 1), orders: i + 1, wastePaise: 0 });
+    const day = (i: number, month: string) => ({ label: `${i + 1} ${month}`, start, netSalesPence: 1000 * (i + 1), orders: i + 1, wastePence: 0 });
     const r = report({
       trend: {
         granularity: 'day',
@@ -119,7 +119,7 @@ describe('report xlsx and csv', () => {
     const r = report({}, 1);
     r.items[0].name = 'Paneer, Tikka';
     r.items[0].prevQty = null;
-    r.items[0].prevSalesPaise = null;
+    r.items[0].prevSalesPence = null;
     r.items[0].changePct = null;
     expect(renderReportCsv(r, 'items').split('\r\n')[1]).toBe('"Paneer, Tikka",Mains,10,500.00,,,');
   });

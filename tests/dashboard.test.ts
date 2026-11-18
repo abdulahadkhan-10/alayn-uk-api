@@ -17,25 +17,25 @@ const ist = (day: number, hhmm: string) => {
   return new Date(Date.UTC(2026, 9, day, h, m) - 330 * 60 * 1000);
 };
 
-type FakeOrder = { id: string; status: string; createdAt: Date; subtotalPaise: number; taxPaise: number; totalPaise: number; discountPaise?: number; vatPaise?: number; serviceTaxPaise?: number };
+type FakeOrder = { id: string; status: string; createdAt: Date; subtotalPence: number; taxPence: number; totalPence: number; discountPence?: number; vatPence?: number; serviceTaxPence?: number };
 
 // Brew Bay Bandra — Saturday 10 Oct 2026
 const RAW_ORDERS: FakeOrder[] = [
   // Settled lunch & dinner: £20,000 food + £1,000 VAT
-  { id: 'o1', status: 'COMPLETED', createdAt: ist(10, '13:00'), subtotalPaise: 1_000_000, taxPaise: 50_000, totalPaise: 1_050_000 },
-  { id: 'o2', status: 'COMPLETED', createdAt: ist(10, '20:00'), subtotalPaise: 1_000_000, taxPaise: 50_000, totalPaise: 1_050_000 },
+  { id: 'o1', status: 'COMPLETED', createdAt: ist(10, '13:00'), subtotalPence: 1_000_000, taxPence: 50_000, totalPence: 1_050_000 },
+  { id: 'o2', status: 'COMPLETED', createdAt: ist(10, '20:00'), subtotalPence: 1_000_000, taxPence: 50_000, totalPence: 1_050_000 },
   // Still eating, unpaid
-  { id: 'o3', status: 'SERVED', createdAt: ist(10, '22:30'), subtotalPaise: 285_714, taxPaise: 14_286, totalPaise: 300_000 },
+  { id: 'o3', status: 'SERVED', createdAt: ist(10, '22:30'), subtotalPence: 285_714, taxPence: 14_286, totalPence: 300_000 },
   // Cancelled — never counts
-  { id: 'o4', status: 'CANCELLED', createdAt: ist(10, '21:00'), subtotalPaise: 500_000, taxPaise: 25_000, totalPaise: 525_000 },
+  { id: 'o4', status: 'CANCELLED', createdAt: ist(10, '21:00'), subtotalPence: 500_000, taxPence: 25_000, totalPence: 525_000 },
   // Friday (previous period for "today")
-  { id: 'o5', status: 'COMPLETED', createdAt: ist(9, '19:00'), subtotalPaise: 1_600_000, taxPaise: 80_000, totalPaise: 1_680_000 },
+  { id: 'o5', status: 'COMPLETED', createdAt: ist(9, '19:00'), subtotalPence: 1_600_000, taxPence: 80_000, totalPence: 1_680_000 },
 ];
 
 const ORDERS: FakeOrder[] = RAW_ORDERS.map((o) => ({
-  discountPaise: 0,
-  serviceTaxPaise: 0,
-  vatPaise: o.taxPaise,
+  discountPence: 0,
+  serviceTaxPence: 0,
+  vatPence: o.taxPence,
   ...o,
 }));
 
@@ -80,9 +80,9 @@ describe('Dashboard numbers', () => {
       expect(kpis.totalRevenue.change).toBe('+25.0%');
     });
 
-    const withExtra = (extra: Array<{ id: string; createdAt: Date; subtotalPaise: number }>) => {
+    const withExtra = (extra: Array<{ id: string; createdAt: Date; subtotalPence: number }>) => {
       const made: FakeOrder[] = extra.map((e) => ({
-        status: 'COMPLETED', taxPaise: 0, totalPaise: e.subtotalPaise, discountPaise: 0, serviceTaxPaise: 0, vatPaise: 0, ...e,
+        status: 'COMPLETED', taxPence: 0, totalPence: e.subtotalPence, discountPence: 0, serviceTaxPence: 0, vatPence: 0, ...e,
       }));
       (prisma.order.findMany as jest.Mock).mockImplementation(({ where }: any) =>
         [...ORDERS, ...made].filter((o) => matches(o, where)),
@@ -91,7 +91,7 @@ describe('Dashboard numbers', () => {
 
     it('today in the morning compares with yesterday up to the same time', async () => {
       jest.setSystemTime(ist(10, '10:00'));
-      withExtra([{ id: 'x1', createdAt: ist(9, '09:00'), subtotalPaise: 500_000 }]);
+      withExtra([{ id: 'x1', createdAt: ist(9, '09:00'), subtotalPence: 500_000 }]);
       const kpis: any = await service.getKpis('outlet-1', 'biz-1', 'TODAY');
       expect(kpis.totalRevenue.prev).toBe('₹5,000'); // not Friday's 7 PM ₹16,000
       expect(kpis.comparison.label).toBe('vs yesterday, same time');
@@ -99,8 +99,8 @@ describe('Dashboard numbers', () => {
 
     it('this month compares with the same dates last month', async () => {
       withExtra([
-        { id: 'x2', createdAt: new Date(Date.UTC(2026, 8, 5, 6, 30)), subtotalPaise: 100_000 },
-        { id: 'x3', createdAt: new Date(Date.UTC(2026, 8, 25, 6, 30)), subtotalPaise: 900_000 },
+        { id: 'x2', createdAt: new Date(Date.UTC(2026, 8, 5, 6, 30)), subtotalPence: 100_000 },
+        { id: 'x3', createdAt: new Date(Date.UTC(2026, 8, 25, 6, 30)), subtotalPence: 900_000 },
       ]);
       const kpis: any = await service.getKpis('outlet-1', 'biz-1', 'THIS_MONTH');
       expect(kpis.totalRevenue.prev).toBe('₹1,000');
@@ -109,8 +109,8 @@ describe('Dashboard numbers', () => {
 
     it('7 days covers today and the 6 days before', async () => {
       withExtra([
-        { id: 'x4', createdAt: ist(3, '12:00'), subtotalPaise: 700_000 },
-        { id: 'x5', createdAt: ist(4, '12:00'), subtotalPaise: 300_000 },
+        { id: 'x4', createdAt: ist(3, '12:00'), subtotalPence: 700_000 },
+        { id: 'x5', createdAt: ist(4, '12:00'), subtotalPence: 300_000 },
       ]);
       const kpis: any = await service.getKpis('outlet-1', 'biz-1', '7_DAY');
       expect(kpis.totalRevenue.value).toBe('₹39,000'); // 20,000 today + 16,000 Fri + 3,000 on 4 Oct; the 3 Oct order is out
@@ -173,8 +173,8 @@ describe('Dashboard numbers', () => {
 
     it('lists the business day from the 4 AM bucket, so late-night sales come last', async () => {
       (prisma.order.findMany as jest.Mock).mockResolvedValue([
-        { createdAt: ist(10, '12:30'), subtotalPaise: 1_000_00 },
-        { createdAt: ist(11, '01:15'), subtotalPaise: 500_00 }, // a sale after midnight, still the same business day
+        { createdAt: ist(10, '12:30'), subtotalPence: 1_000_00 },
+        { createdAt: ist(11, '01:15'), subtotalPence: 500_00 }, // a sale after midnight, still the same business day
       ]);
       const chart: any[] = await service.getSalesVelocity('outlet-1', 'biz-1', 'TODAY');
       expect(chart.map((p) => p.time)).toEqual(['12 PM', '2 PM', '4 PM', '6 PM', '8 PM', '10 PM', '12 AM']);
@@ -198,7 +198,7 @@ describe('Dashboard numbers', () => {
     it('shows the stock logged as wasted, where less is better', async () => {
       // ₹250 of waste today, ₹400 in the comparison period
       (prisma.wasteLog.findMany as jest.Mock).mockImplementation(({ where }: any) =>
-        where.createdAt.gte >= ist(10, '00:00') ? [{ costAtLoggingPaise: 25_000 }] : [{ costAtLoggingPaise: 40_000 }]
+        where.createdAt.gte >= ist(10, '00:00') ? [{ costAtLoggingPence: 25_000 }] : [{ costAtLoggingPence: 40_000 }]
       );
       const kpis: any = await service.getKpis('outlet-1', 'biz-1', 'TODAY');
       expect(kpis.waste).toMatchObject({ value: '₹250', prev: '₹400', change: '-37.5%', isPositive: true });

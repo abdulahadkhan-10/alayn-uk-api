@@ -58,7 +58,7 @@ describe('Needs attention (Overview)', () => {
       { quantity: dec(3), expiryDate: ist(17, '12:00'), item: { id: 'bread', name: 'Bread', unit: 'pcs' }, outlet },
     ]);
     // A bill opened at lunch and never settled
-    (prisma.order.findMany as jest.Mock).mockResolvedValue([{ totalPaise: 47_300, createdAt: ist(16, '13:10') }]);
+    (prisma.order.findMany as jest.Mock).mockResolvedValue([{ totalPence: 47_300, createdAt: ist(16, '13:10') }]);
     // Head Waiter's shift started at 4 PM, no clock-in
     (prisma.employeeRoster.findMany as jest.Mock).mockResolvedValue([
       { employee: { id: 'e1', name: 'Head Waiter', role: 'STAFF', outlet }, shift: { name: 'Evening', startTime: '16:00', endTime: '00:00' } },
@@ -83,17 +83,17 @@ describe('Needs attention (Overview)', () => {
 
   it('says when an old bill was opened by business day (5 AM to 5 AM), not by midnight', async () => {
     // Saturday 1 AM is still Friday night: a bill from Friday 9 PM was opened "today"
-    (prisma.order.findMany as jest.Mock).mockResolvedValue([{ totalPaise: 10_000, createdAt: ist(16, '21:00') }]);
+    (prisma.order.findMany as jest.Mock).mockResolvedValue([{ totalPence: 10_000, createdAt: ist(16, '21:00') }]);
     const [lateNight] = await getAttention('o1', 'biz-1', ist(17, '01:00'));
     expect(lateNight.detail).toBe('₹100 not settled · oldest opened 9 PM');
 
     // Saturday 10 AM: a bill from 2 AM belongs to Friday night, so it was opened yesterday
-    (prisma.order.findMany as jest.Mock).mockResolvedValue([{ totalPaise: 10_000, createdAt: ist(17, '02:00') }]);
+    (prisma.order.findMany as jest.Mock).mockResolvedValue([{ totalPence: 10_000, createdAt: ist(17, '02:00') }]);
     const [morning] = await getAttention('o1', 'biz-1', ist(17, '10:00'));
     expect(morning.detail).toBe('₹100 not settled · oldest opened yesterday');
 
     // Two business days back shows that business day's date
-    (prisma.order.findMany as jest.Mock).mockResolvedValue([{ totalPaise: 10_000, createdAt: ist(16, '03:00') }]);
+    (prisma.order.findMany as jest.Mock).mockResolvedValue([{ totalPence: 10_000, createdAt: ist(16, '03:00') }]);
     const [older] = await getAttention('o1', 'biz-1', ist(17, '10:00'));
     expect(older.detail).toBe('₹100 not settled · oldest opened 15 Oct');
   });

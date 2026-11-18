@@ -98,7 +98,7 @@ describe('detectPeriods', () => {
     expect(labels('table 12')).toEqual([]);
     expect(labels('top 5 items')).toEqual([]);
     expect(labels('order 12025')).toEqual([]);
-    expect(labels('sales above 2025 rupees')).toEqual(['2025']);
+    expect(labels('sales above 2025 pounds')).toEqual(['2025']);
   });
 
   it('reads year-month dates', () => {

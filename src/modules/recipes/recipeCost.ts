@@ -3,27 +3,27 @@
 export interface CostLineInput {
   quantityPerUnit: number;
   wastagePercent: number;
-  unitCostPaise: number;
+  unitCostPence: number;
 }
 
 export interface RecipeCostSummary {
   /** Cost of the ingredients in one portion, wastage included */
-  costPerPortionPaise: number;
-  pricePaise: number;
-  marginPaise: number;
+  costPerPortionPence: number;
+  pricePence: number;
+  marginPence: number;
   /** Ingredient cost as a % of the selling price (1 decimal); null when the price is 0 */
   foodCostPercent: number | null;
 }
 
-export const lineCostPaise = (l: CostLineInput) =>
-  Math.round(l.quantityPerUnit * (1 + l.wastagePercent / 100) * l.unitCostPaise);
+export const lineCostPence = (l: CostLineInput) =>
+  Math.round(l.quantityPerUnit * (1 + l.wastagePercent / 100) * l.unitCostPence);
 
-export function summarizeRecipeCost(lines: CostLineInput[], pricePaise: number): RecipeCostSummary {
-  const costPerPortionPaise = lines.reduce((sum, l) => sum + lineCostPaise(l), 0);
+export function summarizeRecipeCost(lines: CostLineInput[], pricePence: number): RecipeCostSummary {
+  const costPerPortionPence = lines.reduce((sum, l) => sum + lineCostPence(l), 0);
   return {
-    costPerPortionPaise,
-    pricePaise,
-    marginPaise: pricePaise - costPerPortionPaise,
-    foodCostPercent: pricePaise > 0 ? Math.round((costPerPortionPaise / pricePaise) * 1000) / 10 : null,
+    costPerPortionPence,
+    pricePence,
+    marginPence: pricePence - costPerPortionPence,
+    foodCostPercent: pricePence > 0 ? Math.round((costPerPortionPence / pricePence) * 1000) / 10 : null,
   };
 }

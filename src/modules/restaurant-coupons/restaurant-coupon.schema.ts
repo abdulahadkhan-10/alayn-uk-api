@@ -36,6 +36,6 @@ export const updateRestaurantCouponSchema = z.object({
 export const validateRestaurantCouponSchema = z.object({
   code: z.string().trim().min(1, 'Coupon code is required').transform((v) => v.toUpperCase()),
   subtotalAmount: z.number().nonnegative().optional(),
-  subtotalPaise: z.number().int().nonnegative().optional(),
+  subtotalPence: z.number().int().nonnegative().optional(),
   outletId: z.string().uuid().optional(),
 });

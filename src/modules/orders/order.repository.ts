@@ -17,13 +17,13 @@ export class OrderRepository {
     tableNumber?: number;
     source: 'TABLE' | 'COUNTER' | 'QR' | 'DELIVERY';
     status: 'SENT_TO_KITCHEN';
-    subtotalPaise: number;
-    vatPaise: number;
-    serviceTaxPaise?: number;
-    taxPaise: number;
-    totalPaise: number;
-    discountPaise?: number;
-    roundOffPaise?: number;
+    subtotalPence: number;
+    vatPence: number;
+    serviceTaxPence?: number;
+    taxPence: number;
+    totalPence: number;
+    discountPence?: number;
+    roundOffPence?: number;
     vatRate?: Prisma.Decimal;
     serviceChargeRate?: Prisma.Decimal;
     placedByName?: string;
@@ -32,7 +32,7 @@ export class OrderRepository {
     customerPhone?: string;
     couponId?: string;
     couponCode?: string;
-    items: { menuItemId: string; quantity: number; unitPricePaise: number; subtotalPaise: number; notes?: string }[];
+    items: { menuItemId: string; quantity: number; unitPricePence: number; subtotalPence: number; notes?: string }[];
   }, client: Prisma.TransactionClient = prisma) {
     const orderData = {
       outletId,
@@ -40,13 +40,13 @@ export class OrderRepository {
       tableNumber: isNaN(data.tableNumber as number) ? null : data.tableNumber,
       source: data.source,
       status: data.status as any,
-      subtotalPaise: data.subtotalPaise,
-      vatPaise: data.vatPaise,
-      serviceTaxPaise: data.serviceTaxPaise || 0,
-      taxPaise: data.taxPaise,
-      totalPaise: data.totalPaise,
-      discountPaise: data.discountPaise || 0,
-      roundOffPaise: data.roundOffPaise || 0,
+      subtotalPence: data.subtotalPence,
+      vatPence: data.vatPence,
+      serviceTaxPence: data.serviceTaxPence || 0,
+      taxPence: data.taxPence,
+      totalPence: data.totalPence,
+      discountPence: data.discountPence || 0,
+      roundOffPence: data.roundOffPence || 0,
       vatRate: data.vatRate,
       serviceChargeRate: data.serviceChargeRate,
       placedByName: data.placedByName,
@@ -59,8 +59,8 @@ export class OrderRepository {
         create: data.items.map(item => ({
           menuItemId: item.menuItemId,
           quantity: item.quantity,
-          unitPricePaise: item.unitPricePaise,
-          subtotalPaise: item.subtotalPaise,
+          unitPricePence: item.unitPricePence,
+          subtotalPence: item.subtotalPence,
           notes: item.notes,
           modifiersJson: (item as any).modifiersJson || null,
         })),
@@ -94,7 +94,7 @@ export class OrderRepository {
    */
   async appendItemsToOrder(
     activeOrderId: string,
-    newItems: { menuItemId: string; quantity: number; unitPricePaise: number; subtotalPaise: number; notes?: string; modifiersJson?: string | null }[],
+    newItems: { menuItemId: string; quantity: number; unitPricePence: number; subtotalPence: number; notes?: string; modifiersJson?: string | null }[],
     client: Prisma.TransactionClient = prisma
   ) {
     const existingOrder = await client.order.findUnique({
@@ -113,8 +113,8 @@ export class OrderRepository {
           orderId: activeOrderId,
           menuItemId: newItem.menuItemId,
           quantity: newItem.quantity,
-          unitPricePaise: newItem.unitPricePaise,
-          subtotalPaise: newItem.subtotalPaise,
+          unitPricePence: newItem.unitPricePence,
+          subtotalPence: newItem.subtotalPence,
           notes: newItem.notes,
           modifiersJson: newItem.modifiersJson || null,
           status: 'SENT_TO_KITCHEN',
@@ -278,11 +278,11 @@ export class OrderRepository {
     });
   }
 
-  async createPayment(orderId: string, amountPaise: number, method: PaymentMethodCode, status: 'PENDING' | 'CONFIRMED' | 'FAILED') {
+  async createPayment(orderId: string, amountPence: number, method: PaymentMethodCode, status: 'PENDING' | 'CONFIRMED' | 'FAILED') {
     return prisma.payment.create({
       data: {
         orderId,
-        amountPaise,
+        amountPence,
         method,
         status,
       },

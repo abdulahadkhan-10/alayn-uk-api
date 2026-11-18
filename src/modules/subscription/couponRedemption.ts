@@ -110,7 +110,7 @@ export async function redeemFreeCoupon(
     status: OutletSubscriptionStatus.ACTIVE,
     planCode,
     planName: `${coupon.code} VIP Promo Access`,
-    monthlyFeePaise: 0,
+    monthlyFeePence: 0,
     taxRatePercent: 0,
     currency: 'GBP',
     currentPeriodEnd: freeUntil,

@@ -20,9 +20,9 @@ describe('Slow movers (Overview)', () => {
 
   beforeEach(() => {
     (prisma.menuItem.findMany as jest.Mock).mockResolvedValue([
-      { id: 'a', name: 'Paneer Wrap', pricePaise: 18_000, category: { name: 'Wraps' } },
-      { id: 'b', name: 'Mango Lassi', pricePaise: 9_000, category: { name: 'Drinks' } },
-      { id: 'c', name: 'Cold Coffee', pricePaise: 12_000, category: null },
+      { id: 'a', name: 'Paneer Wrap', pricePence: 18_000, category: { name: 'Wraps' } },
+      { id: 'b', name: 'Mango Lassi', pricePence: 9_000, category: { name: 'Drinks' } },
+      { id: 'c', name: 'Cold Coffee', pricePence: 12_000, category: null },
     ]);
     (prisma.orderItem.findMany as jest.Mock).mockResolvedValue([
       { menuItemId: 'a', order: { createdAt: ist(1, '20:00') } },

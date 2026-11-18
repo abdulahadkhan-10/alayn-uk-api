@@ -45,18 +45,18 @@ export async function calculateDailySales(targetDate: Date) {
           },
         },
         update: {
-          grossSalesPaise: 0,
-          cogsPaise: 0,
-          grossProfitPaise: 0,
+          grossSalesPence: 0,
+          cogsPence: 0,
+          grossProfitPence: 0,
           orderCount: 0,
           itemBreakdownJson: '{}',
         },
         create: {
           outletId: outlet.id,
           date: startOfDay,
-          grossSalesPaise: 0,
-          cogsPaise: 0,
-          grossProfitPaise: 0,
+          grossSalesPence: 0,
+          cogsPence: 0,
+          grossProfitPence: 0,
           orderCount: 0,
           itemBreakdownJson: '{}',
         },
@@ -64,13 +64,13 @@ export async function calculateDailySales(targetDate: Date) {
       continue;
     }
 
-    let grossSalesPaise = 0;
+    let grossSalesPence = 0;
     // Menu items aren't linked to stock, so there's no ingredient cost per sale
-    const cogsPaise = 0;
+    const cogsPence = 0;
     const itemBreakdown: { [menuItemId: string]: number } = {};
 
     for (const order of completedOrders) {
-      grossSalesPaise += order.totalPaise;
+      grossSalesPence += order.totalPence;
 
       for (const orderItem of order.items) {
         // Update item breakdown
@@ -82,7 +82,7 @@ export async function calculateDailySales(targetDate: Date) {
       }
     }
 
-    const grossProfitPaise = grossSalesPaise - cogsPaise;
+    const grossProfitPence = grossSalesPence - cogsPence;
 
     // Upsert summary record
     await prisma.dailySalesSummary.upsert({
@@ -93,18 +93,18 @@ export async function calculateDailySales(targetDate: Date) {
         },
       },
       update: {
-        grossSalesPaise,
-        cogsPaise,
-        grossProfitPaise,
+        grossSalesPence,
+        cogsPence,
+        grossProfitPence,
         orderCount,
         itemBreakdownJson: JSON.stringify(itemBreakdown),
       },
       create: {
         outletId: outlet.id,
         date: startOfDay,
-        grossSalesPaise,
-        cogsPaise,
-        grossProfitPaise,
+        grossSalesPence,
+        cogsPence,
+        grossProfitPence,
         orderCount,
         itemBreakdownJson: JSON.stringify(itemBreakdown),
       },

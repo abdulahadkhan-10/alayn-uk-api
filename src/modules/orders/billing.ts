@@ -27,25 +27,25 @@ export interface BillOptions {
   /** Service charge only applies to dine-in (table) orders */
   dineIn: boolean;
   serviceChargeWaived?: boolean;
-  discountPaise?: number;
+  discountPence?: number;
   /** false: the outlet is below the VAT threshold, so its bills carry no VAT */
   vatRegistered?: boolean;
 }
 
 export interface BillLine {
-  unitPricePaise: number;
+  unitPricePence: number;
   quantity: number;
 }
 
 export interface BillTotals {
-  subtotalPaise: number;
-  discountPaise: number;
-  serviceChargePaise: number;
+  subtotalPence: number;
+  discountPence: number;
+  serviceChargePence: number;
   /** Value of the goods excluding VAT (net − VAT) */
-  netOfVatPaise: number;
-  vatPaise: number;
-  roundOffPaise: number;
-  totalPaise: number;
+  netOfVatPence: number;
+  vatPence: number;
+  roundOffPence: number;
+  totalPence: number;
   /** Rates actually applied (0 where not applicable) — saved on the order so receipts never drift */
   appliedRates: BillRates;
 }
@@ -57,25 +57,25 @@ export function isDineIn(source?: string | null): boolean {
 }
 
 export function calculateBill(items: BillLine[], rates: BillRates, options: BillOptions): BillTotals {
-  const subtotalPaise = items.reduce((sum, item) => sum + item.unitPricePaise * item.quantity, 0);
-  const discountPaise = Math.min(Math.max(0, Math.round(options.discountPaise || 0)), subtotalPaise);
-  const netPaise = subtotalPaise - discountPaise;
+  const subtotalPence = items.reduce((sum, item) => sum + item.unitPricePence * item.quantity, 0);
+  const discountPence = Math.min(Math.max(0, Math.round(options.discountPence || 0)), subtotalPence);
+  const netPence = subtotalPence - discountPence;
 
   const serviceChargeRate =
     options.dineIn && !options.serviceChargeWaived ? Math.max(0, rates.serviceChargeRate || 0) : 0;
-  const serviceChargePaise = Math.round((netPaise * serviceChargeRate) / 100);
+  const serviceChargePence = Math.round((netPence * serviceChargeRate) / 100);
 
   const vatRate = options.vatRegistered === false ? 0 : Math.max(0, rates.vatRate || 0);
-  const vatPaise = Math.round((netPaise * vatRate) / (100 + vatRate));
+  const vatPence = Math.round((netPence * vatRate) / (100 + vatRate));
 
   return {
-    subtotalPaise,
-    discountPaise,
-    serviceChargePaise,
-    netOfVatPaise: netPaise - vatPaise,
-    vatPaise,
-    roundOffPaise: 0,
-    totalPaise: netPaise + serviceChargePaise,
+    subtotalPence,
+    discountPence,
+    serviceChargePence,
+    netOfVatPence: netPence - vatPence,
+    vatPence,
+    roundOffPence: 0,
+    totalPence: netPence + serviceChargePence,
     appliedRates: { vatRate, serviceChargeRate },
   };
 }

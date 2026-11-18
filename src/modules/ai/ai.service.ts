@@ -314,7 +314,7 @@ export class AiService {
           createdAt: { gte: startOfCurrentMonth },
           deletedAt: null,
         },
-        _sum: { subtotalPaise: true, discountPaise: true },
+        _sum: { subtotalPence: true, discountPence: true },
         _count: { id: true },
       }),
 
@@ -326,7 +326,7 @@ export class AiService {
           createdAt: { gte: startOfToday },
           deletedAt: null,
         },
-        _sum: { subtotalPaise: true, discountPaise: true },
+        _sum: { subtotalPence: true, discountPence: true },
         _count: { id: true },
       }),
 
@@ -349,13 +349,13 @@ export class AiService {
         const itemIds = groups.map((g) => g.menuItemId);
         const items = await prisma.menuItem.findMany({
           where: { id: { in: itemIds } },
-          select: { id: true, name: true, pricePaise: true },
+          select: { id: true, name: true, pricePence: true },
         });
         const itemMap = new Map(items.map((i) => [i.id, i]));
         return groups.map((g) => ({
           name: itemMap.get(g.menuItemId)?.name || 'Unknown Item',
           volume: g._sum.quantity || 0,
-          pricePaise: itemMap.get(g.menuItemId)?.pricePaise || 0,
+          pricePence: itemMap.get(g.menuItemId)?.pricePence || 0,
         }));
       }),
 
@@ -383,7 +383,7 @@ export class AiService {
           ...directOutletFilter,
           createdAt: { gte: startOfCurrentMonth },
         },
-        _sum: { costAtLoggingPaise: true },
+        _sum: { costAtLoggingPence: true },
         _count: { id: true },
       }),
 
@@ -416,14 +416,14 @@ export class AiService {
     ]);
 
     // Format metrics into a concise context block
-    const mtdRevenue = ((revenueAggregate._sum.subtotalPaise || 0) - (revenueAggregate._sum.discountPaise || 0)) / 100;
+    const mtdRevenue = ((revenueAggregate._sum.subtotalPence || 0) - (revenueAggregate._sum.discountPence || 0)) / 100;
     const mtdOrders = revenueAggregate._count.id || 0;
     const avgOrderValue = mtdOrders > 0 ? (mtdRevenue / mtdOrders).toFixed(2) : '0';
 
-    const todayRevenue = ((todayRevenueAggregate._sum.subtotalPaise || 0) - (todayRevenueAggregate._sum.discountPaise || 0)) / 100;
+    const todayRevenue = ((todayRevenueAggregate._sum.subtotalPence || 0) - (todayRevenueAggregate._sum.discountPence || 0)) / 100;
     const todayOrders = todayRevenueAggregate._count.id || 0;
 
-    const wasteCost = (recentWasteAggregate._sum.costAtLoggingPaise || 0) / 100;
+    const wasteCost = (recentWasteAggregate._sum.costAtLoggingPence || 0) / 100;
     const wasteCount = recentWasteAggregate._count.id || 0;
 
     let occupiedTables = 0;

@@ -35,8 +35,8 @@ export class MenuService {
         modifiers: (g.modifiers || []).map((m: any) => ({
           id: m.id,
           name: m.name,
-          price: (m.pricePaise || 0) / 100,
-          pricePaise: m.pricePaise || 0,
+          price: (m.pricePence || 0) / 100,
+          pricePence: m.pricePence || 0,
           isVeg: m.isVeg ?? true,
           dietaryType: m.dietaryType || (m.isVeg === false ? 'NON_VEG' : 'VEG'),
           isActive: m.isActive ?? true,
@@ -48,7 +48,7 @@ export class MenuService {
 
     return {
       ...item,
-      price: item.pricePaise ? item.pricePaise / 100 : 0,
+      price: item.pricePence ? item.pricePence / 100 : 0,
       isAvailable,
       outletIds,
       modifierGroups,
@@ -144,8 +144,8 @@ export class MenuService {
     }
     await this.assertModifierGroupsOwned(businessId, data.modifierGroupIds);
     
-    if (data.price !== undefined && !data.pricePaise) {
-      data.pricePaise = Math.round(Number(data.price) * 100);
+    if (data.price !== undefined && !data.pricePence) {
+      data.pricePence = Math.round(Number(data.price) * 100);
       delete data.price;
     }
     if (data.isAvailable !== undefined) {
@@ -197,7 +197,7 @@ export class MenuService {
     await this.assertModifierGroupsOwned(businessId, data.modifierGroupIds);
 
     if (data.price !== undefined) {
-      data.pricePaise = Math.round(Number(data.price) * 100);
+      data.pricePence = Math.round(Number(data.price) * 100);
       delete data.price;
     }
     if (data.isAvailable !== undefined) {
@@ -254,7 +254,7 @@ export class MenuService {
       ...g,
       modifiers: (g.modifiers || []).map((m: any) => ({
         ...m,
-        price: (m.pricePaise || 0) / 100,
+        price: (m.pricePence || 0) / 100,
       })),
       itemCount: g._count?.menuItems || 0,
     }));
@@ -269,7 +269,7 @@ export class MenuService {
       ...group,
       modifiers: (group.modifiers || []).map((m: any) => ({
         ...m,
-        price: (m.pricePaise || 0) / 100,
+        price: (m.pricePence || 0) / 100,
       })),
     };
   }
@@ -292,7 +292,7 @@ export class MenuService {
       ...group,
       modifiers: (group.modifiers || []).map((m: any) => ({
         ...m,
-        price: (m.pricePaise || 0) / 100,
+        price: (m.pricePence || 0) / 100,
       })),
     };
   }
@@ -312,7 +312,7 @@ export class MenuService {
       ...updated,
       modifiers: (updated?.modifiers || []).map((m: any) => ({
         ...m,
-        price: (m.pricePaise || 0) / 100,
+        price: (m.pricePence || 0) / 100,
       })),
     };
   }

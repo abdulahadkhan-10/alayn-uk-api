@@ -15,8 +15,8 @@ describe('AlaynAI sales history facts', () => {
   // Fri 16 Oct 2026, 3 PM India time
   const NOW = ist(2026, 10, 16, '15:00');
   const orders: SettledOrder[] = [];
-  const add = (y: number, m: number, d: number, hhmm: string, rupees: number) =>
-    orders.push({ createdAt: ist(y, m, d, hhmm), subtotalPaise: rupees * 100, outletId: 'A' });
+  const add = (y: number, m: number, d: number, hhmm: string, pounds: number) =>
+    orders.push({ createdAt: ist(y, m, d, hhmm), subtotalPence: pounds * 100, outletId: 'A' });
 
   // Every day of September and 1–16 October: ₹600 at 9 AM, ₹400 at 1 PM, ₹1,000 at 11:50 PM
   for (const [m, days] of [[9, 30], [10, 16]] as const) {
@@ -51,7 +51,7 @@ describe('AlaynAI sales history facts', () => {
   });
 
   it('handles January (last month is December of the previous year)', () => {
-    const jan = summariseSales([{ createdAt: ist(2026, 12, 20, '12:00'), subtotalPaise: 50_000, outletId: 'A' }], ist(2027, 1, 5, '10:00'));
+    const jan = summariseSales([{ createdAt: ist(2026, 12, 20, '12:00'), subtotalPence: 50_000, outletId: 'A' }], ist(2027, 1, 5, '10:00'));
     expect(jan.find((l) => l.startsWith('- Last month'))).toBe('- Last month (Dec 2026) total: ₹500');
   });
 
@@ -64,13 +64,13 @@ describe('AlaynAI sales history facts', () => {
 describe('AlaynAI report answers', () => {
   const NOW = ist(2026, 10, 16, '15:00');
   const totals = (sales: number) => ({
-    netSalesPaise: sales, orders: 10, avgOrderPaise: 10000, discountPaise: 0, taxPaise: 0,
-    serviceChargePaise: 0, cancelledOrders: 0, cancelledPaise: 0, wastePaise: 0, itemsSold: 20,
+    netSalesPence: sales, orders: 10, avgOrderPence: 10000, discountPence: 0, taxPence: 0,
+    serviceChargePence: 0, cancelledOrders: 0, cancelledPence: 0, wastePence: 0, itemsSold: 20,
   });
   const fixture = (): any => ({
     period: { start: '', end: '', label: 'Aug 2026' },
     comparison: { start: '', end: '', label: 'Sep 2026', compareLabel: 'vs Sep 2026' },
-    totals: { current: totals(12000000), previous: totals(10000000), changePct: { netSalesPaise: 20 } },
+    totals: { current: totals(12000000), previous: totals(10000000), changePct: { netSalesPence: 20 } },
     trend: { granularity: 'day', current: [], previous: [] },
     channels: [], payments: [], categories: [], outlets: [], hours: [], weekdays: [], waste: [],
     items: [], highlights: ['Sales are up'], notes: [],

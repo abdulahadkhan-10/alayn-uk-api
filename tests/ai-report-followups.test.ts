@@ -11,7 +11,7 @@ jest.mock('../src/modules/ai/aiContext', () => ({
 
 const report = {
   period: { label: 'Sep 2026', compareLabel: 'vs Aug 2026' },
-  totals: { current: { netSalesPaise: 100, orders: 1, avgOrderPaise: 100 }, previous: null, changePct: {} },
+  totals: { current: { netSalesPence: 100, orders: 1, avgOrderPence: 100 }, previous: null, changePct: {} },
   highlights: [], channels: [], items: [], hourly: [], days: [], categories: [], outlets: [],
   scope: { outletNames: ['One'], businessName: 'Biz' },
 };

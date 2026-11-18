@@ -1,7 +1,7 @@
 /**
  * Split payments — settling one bill with several payments (e.g. £100 cash + £185 card on a £285 bill).
  *
- * All amounts are integer paise. A settlement is accepted only when the payments add up to exactly the
+ * All amounts are integer pence. A settlement is accepted only when the payments add up to exactly the
  * balance still due, and every online payment (card / partner) has been confirmed as received by the cashier.
  * The frontend checkout mirrors these rules in alayn-frontend/src/lib/splitPayment.ts — keep them in sync.
  */
@@ -21,21 +21,21 @@ export const MAX_SPLIT_PAYMENTS = 6;
 
 export interface SettlementPaymentInput {
   method: PaymentMethodCode;
-  amountPaise: number;
+  amountPence: number;
   reference?: string;
   verified?: boolean;
 }
 
 export interface SettlementPayment {
   method: PaymentMethodCode;
-  amountPaise: number;
+  amountPence: number;
   reference: string | null;
   isOnline: boolean;
 }
 
 export interface PaymentLike {
   method: string;
-  amountPaise: number;
+  amountPence: number;
   status: string;
   reference?: string | null;
 }
@@ -43,7 +43,7 @@ export interface PaymentLike {
 export const isOnlineMethod = (method: string) => ONLINE_METHODS.includes(method as PaymentMethodCode);
 export const isPlatformMethod = (method: string) => PLATFORM_METHODS.includes(method as PaymentMethodCode);
 
-export const formatMoney = (paise: number) => `£${(paise / 100).toFixed(2)}`;
+export const formatMoney = (pence: number) => `£${(pence / 100).toFixed(2)}`;
 
 const METHOD_LABELS: Record<string, string> = {
   CASH: 'Cash',
@@ -54,8 +54,8 @@ const METHOD_LABELS: Record<string, string> = {
 };
 
 /** Sum of payments that count towards the bill (confirmed only) */
-export function confirmedPaidPaise(payments: PaymentLike[] = []): number {
-  return payments.filter((p) => p.status === 'CONFIRMED').reduce((sum, p) => sum + p.amountPaise, 0);
+export function confirmedPaidPence(payments: PaymentLike[] = []): number {
+  return payments.filter((p) => p.status === 'CONFIRMED').reduce((sum, p) => sum + p.amountPence, 0);
 }
 
 /**
@@ -64,7 +64,7 @@ export function confirmedPaidPaise(payments: PaymentLike[] = []): number {
  */
 export function validateSettlementPayments(
   payments: SettlementPaymentInput[],
-  balanceDuePaise: number
+  balanceDuePence: number
 ): SettlementPayment[] {
   if (payments.length === 0) {
     throw new AppError('VALIDATION_ERROR', 'Add at least one payment to settle the bill.', 400);
@@ -77,26 +77,26 @@ export function validateSettlementPayments(
   }
 
   const normalized = payments.map((p) => {
-    if (!Number.isSafeInteger(p.amountPaise) || p.amountPaise <= 0) {
+    if (!Number.isSafeInteger(p.amountPence) || p.amountPence <= 0) {
       throw new AppError('VALIDATION_ERROR', 'Every payment needs an amount greater than zero.', 400);
     }
     return {
       method: p.method,
-      amountPaise: p.amountPaise,
+      amountPence: p.amountPence,
       reference: p.reference?.trim() || null,
       isOnline: isOnlineMethod(p.method),
       verified: p.verified === true,
     };
   });
 
-  const allocatedPaise = normalized.reduce((sum, p) => sum + p.amountPaise, 0);
-  if (allocatedPaise !== balanceDuePaise) {
-    const gap = balanceDuePaise - allocatedPaise;
+  const allocatedPence = normalized.reduce((sum, p) => sum + p.amountPence, 0);
+  if (allocatedPence !== balanceDuePence) {
+    const gap = balanceDuePence - allocatedPence;
     throw new AppError(
       'PAYMENT_AMOUNT_MISMATCH',
       gap > 0
-        ? `Payments add up to ${formatMoney(allocatedPaise)} but ${formatMoney(balanceDuePaise)} is due — ${formatMoney(gap)} is still unallocated.`
-        : `Payments add up to ${formatMoney(allocatedPaise)}, which is ${formatMoney(-gap)} more than the ${formatMoney(balanceDuePaise)} due.`,
+        ? `Payments add up to ${formatMoney(allocatedPence)} but ${formatMoney(balanceDuePence)} is due — ${formatMoney(gap)} is still unallocated.`
+        : `Payments add up to ${formatMoney(allocatedPence)}, which is ${formatMoney(-gap)} more than the ${formatMoney(balanceDuePence)} due.`,
       400
     );
   }
@@ -105,7 +105,7 @@ export function validateSettlementPayments(
   if (unverified) {
     throw new AppError(
       'PAYMENT_NOT_VERIFIED',
-      `Confirm the ${METHOD_LABELS[unverified.method]} payment of ${formatMoney(unverified.amountPaise)} was received before settling.`,
+      `Confirm the ${METHOD_LABELS[unverified.method]} payment of ${formatMoney(unverified.amountPence)} was received before settling.`,
       400
     );
   }
@@ -114,17 +114,17 @@ export function validateSettlementPayments(
 }
 
 /** e.g. "Cash £100.00 + Card £185.00" — used in the bill's status history */
-export function describePayments(payments: Pick<PaymentLike, 'method' | 'amountPaise'>[]): string {
-  return payments.map((p) => `${METHOD_LABELS[p.method] || p.method} ${formatMoney(p.amountPaise)}`).join(' + ');
+export function describePayments(payments: Pick<PaymentLike, 'method' | 'amountPence'>[]): string {
+  return payments.map((p) => `${METHOD_LABELS[p.method] || p.method} ${formatMoney(p.amountPence)}`).join(' + ');
 }
 
 /**
  * How a bill was paid, for responses, receipts and reports. `paymentMethod` stays a single value for
  * older screens: the method when one was used, 'SPLIT' when several were.
  */
-export function summarizePayments(payments: PaymentLike[] = [], totalPaise = 0) {
+export function summarizePayments(payments: PaymentLike[] = [], totalPence = 0) {
   const confirmed = payments.filter((p) => p.status === 'CONFIRMED');
-  const paidPaise = confirmed.reduce((sum, p) => sum + p.amountPaise, 0);
+  const paidPence = confirmed.reduce((sum, p) => sum + p.amountPence, 0);
   const methods = Array.from(new Set(confirmed.map((p) => p.method)));
   // Voided intents never describe the bill; before any confirmed payment, show the open intent (legacy behaviour)
   const live = payments.filter((p) => p.status !== 'VOID');
@@ -135,12 +135,12 @@ export function summarizePayments(payments: PaymentLike[] = [], totalPaise = 0) 
     isSplitPayment: confirmed.length > 1,
     paymentSplits: confirmed.map((p) => ({
       method: p.method,
-      amountPaise: p.amountPaise,
-      amount: p.amountPaise / 100,
+      amountPence: p.amountPence,
+      amount: p.amountPence / 100,
       reference: p.reference || null,
     })),
-    paidAmount: paidPaise / 100,
-    balanceDuePaise: Math.max(0, totalPaise - paidPaise),
-    balanceDue: Math.max(0, totalPaise - paidPaise) / 100,
+    paidAmount: paidPence / 100,
+    balanceDuePence: Math.max(0, totalPence - paidPence),
+    balanceDue: Math.max(0, totalPence - paidPence) / 100,
   };
 }

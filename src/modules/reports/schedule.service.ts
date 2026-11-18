@@ -65,9 +65,9 @@ type BuiltReport = Awaited<ReturnType<typeof buildReport>>;
 function emailBody(report: BuiltReport, frequency: Frequency) {
   const t = report.totals.current;
   const rows: [string, string][] = [
-    ['Sales (before tax)', formatMoney(t.netSalesPaise)],
+    ['Sales (before tax)', formatMoney(t.netSalesPence)],
     ['Orders', String(t.orders)],
-    ['Average order value', formatMoney(t.avgOrderPaise)],
+    ['Average order value', formatMoney(t.avgOrderPence)],
   ];
   const where = report.scope.outletNames.join(', ');
   const title = `Your ${WORD[frequency]} report: ${report.period.label}`;

@@ -137,16 +137,16 @@ async function main() {
 
   // Inventory Items Template
   const inventoryItemsTemplate = [
-    { key: 'milk', name: 'Fresh Milk', skuPrefix: 'MILK', category: 'Dairy', unit: 'Liters', reorderThreshold: 10.0, unitCostPaise: 6000, initialQty: 50 },
-    { key: 'coffee', name: 'Arabica Coffee Beans', skuPrefix: 'COFFEE', category: 'Beverages', unit: 'Kg', reorderThreshold: 5.0, unitCostPaise: 80000, initialQty: 20 },
-    { key: 'tea', name: 'Assam Tea Leaves', skuPrefix: 'TEA', category: 'Beverages', unit: 'Kg', reorderThreshold: 3.0, unitCostPaise: 45000, initialQty: 15 },
-    { key: 'sugar', name: 'Refined White Sugar', skuPrefix: 'SUGAR', category: 'Pantry', unit: 'Kg', reorderThreshold: 10.0, unitCostPaise: 4500, initialQty: 50 },
-    { key: 'flour', name: 'All-Purpose Flour', skuPrefix: 'FLOUR', category: 'Pantry', unit: 'Kg', reorderThreshold: 15.0, unitCostPaise: 4000, initialQty: 100 },
-    { key: 'cheese', name: 'Cheddar Cheese Slices', skuPrefix: 'CHEESE', category: 'Dairy', unit: 'Pcs', reorderThreshold: 50.0, unitCostPaise: 500, initialQty: 200 },
-    { key: 'butter', name: 'Unsalted Butter', skuPrefix: 'BUTTER', category: 'Dairy', unit: 'Kg', reorderThreshold: 5.0, unitCostPaise: 55000, initialQty: 20 },
-    { key: 'oil', name: 'Sunflower Cooking Oil', skuPrefix: 'OIL', category: 'Pantry', unit: 'Liters', reorderThreshold: 10.0, unitCostPaise: 14000, initialQty: 50 },
-    { key: 'cups', name: 'Paper Beverage Cups (8oz)', skuPrefix: 'CUP', category: 'Supplies', unit: 'Pcs', reorderThreshold: 100.0, unitCostPaise: 300, initialQty: 1000 },
-    { key: 'napkins', name: 'Tissue Napkins', skuPrefix: 'NAPKIN', category: 'Supplies', unit: 'Pcs', reorderThreshold: 200.0, unitCostPaise: 50, initialQty: 2000 },
+    { key: 'milk', name: 'Fresh Milk', skuPrefix: 'MILK', category: 'Dairy', unit: 'Liters', reorderThreshold: 10.0, unitCostPence: 6000, initialQty: 50 },
+    { key: 'coffee', name: 'Arabica Coffee Beans', skuPrefix: 'COFFEE', category: 'Beverages', unit: 'Kg', reorderThreshold: 5.0, unitCostPence: 80000, initialQty: 20 },
+    { key: 'tea', name: 'Assam Tea Leaves', skuPrefix: 'TEA', category: 'Beverages', unit: 'Kg', reorderThreshold: 3.0, unitCostPence: 45000, initialQty: 15 },
+    { key: 'sugar', name: 'Refined White Sugar', skuPrefix: 'SUGAR', category: 'Pantry', unit: 'Kg', reorderThreshold: 10.0, unitCostPence: 4500, initialQty: 50 },
+    { key: 'flour', name: 'All-Purpose Flour', skuPrefix: 'FLOUR', category: 'Pantry', unit: 'Kg', reorderThreshold: 15.0, unitCostPence: 4000, initialQty: 100 },
+    { key: 'cheese', name: 'Cheddar Cheese Slices', skuPrefix: 'CHEESE', category: 'Dairy', unit: 'Pcs', reorderThreshold: 50.0, unitCostPence: 500, initialQty: 200 },
+    { key: 'butter', name: 'Unsalted Butter', skuPrefix: 'BUTTER', category: 'Dairy', unit: 'Kg', reorderThreshold: 5.0, unitCostPence: 55000, initialQty: 20 },
+    { key: 'oil', name: 'Sunflower Cooking Oil', skuPrefix: 'OIL', category: 'Pantry', unit: 'Liters', reorderThreshold: 10.0, unitCostPence: 14000, initialQty: 50 },
+    { key: 'cups', name: 'Paper Beverage Cups (8oz)', skuPrefix: 'CUP', category: 'Supplies', unit: 'Pcs', reorderThreshold: 100.0, unitCostPence: 300, initialQty: 1000 },
+    { key: 'napkins', name: 'Tissue Napkins', skuPrefix: 'NAPKIN', category: 'Supplies', unit: 'Pcs', reorderThreshold: 200.0, unitCostPence: 50, initialQty: 2000 },
   ];
 
   // Menu Categories and Items Template
@@ -155,24 +155,24 @@ async function main() {
       categoryName: 'Hot Beverages',
       description: 'Freshly brewed coffees and traditional teas',
       items: [
-        { name: 'Classic Cappuccino', description: 'Rich espresso topped with velvety steamed milk foam', pricePaise: 18000, isVeg: true, dietaryType: 'VEG' as const, recipe: [{ itemKey: 'coffee', qty: 0.02 }, { itemKey: 'milk', qty: 0.15 }, { itemKey: 'sugar', qty: 0.01 }] },
-        { name: 'Masala Chai', description: 'Traditional spiced Indian tea with fresh milk', pricePaise: 9000, isVeg: true, dietaryType: 'VEG' as const, recipe: [{ itemKey: 'tea', qty: 0.01 }, { itemKey: 'milk', qty: 0.1 }, { itemKey: 'sugar', qty: 0.015 }] },
-        { name: 'Espresso Single Shot', description: 'Intense and fragrant dark roast coffee shot', pricePaise: 12000, isVeg: true, dietaryType: 'VEGAN' as const, recipe: [{ itemKey: 'coffee', qty: 0.015 }] },
+        { name: 'Classic Cappuccino', description: 'Rich espresso topped with velvety steamed milk foam', pricePence: 18000, isVeg: true, dietaryType: 'VEG' as const, recipe: [{ itemKey: 'coffee', qty: 0.02 }, { itemKey: 'milk', qty: 0.15 }, { itemKey: 'sugar', qty: 0.01 }] },
+        { name: 'Masala Chai', description: 'Traditional spiced Indian tea with fresh milk', pricePence: 9000, isVeg: true, dietaryType: 'VEG' as const, recipe: [{ itemKey: 'tea', qty: 0.01 }, { itemKey: 'milk', qty: 0.1 }, { itemKey: 'sugar', qty: 0.015 }] },
+        { name: 'Espresso Single Shot', description: 'Intense and fragrant dark roast coffee shot', pricePence: 12000, isVeg: true, dietaryType: 'VEGAN' as const, recipe: [{ itemKey: 'coffee', qty: 0.015 }] },
       ],
     },
     {
       categoryName: 'Bakery & Snacks',
       description: 'Freshly baked savories, croissants, and sandwiches',
       items: [
-        { name: 'Gourmet Cheese Sandwich', description: 'Toasted bread with melted cheddar and unsalted butter', pricePaise: 22000, isVeg: true, recipe: [{ itemKey: 'flour', qty: 0.1 }, { itemKey: 'cheese', qty: 2.0 }, { itemKey: 'butter', qty: 0.02 }] },
-        { name: 'Butter Croissant', description: 'Flaky golden French pastry baked with premium butter', pricePaise: 15000, isVeg: true, recipe: [{ itemKey: 'flour', qty: 0.08 }, { itemKey: 'butter', qty: 0.04 }, { itemKey: 'sugar', qty: 0.01 }] },
+        { name: 'Gourmet Cheese Sandwich', description: 'Toasted bread with melted cheddar and unsalted butter', pricePence: 22000, isVeg: true, recipe: [{ itemKey: 'flour', qty: 0.1 }, { itemKey: 'cheese', qty: 2.0 }, { itemKey: 'butter', qty: 0.02 }] },
+        { name: 'Butter Croissant', description: 'Flaky golden French pastry baked with premium butter', pricePence: 15000, isVeg: true, recipe: [{ itemKey: 'flour', qty: 0.08 }, { itemKey: 'butter', qty: 0.04 }, { itemKey: 'sugar', qty: 0.01 }] },
       ],
     },
     {
       categoryName: 'Cold Beverages',
       description: 'Chilled coffees, iced teas, and refreshing drinks',
       items: [
-        { name: 'Iced Caramel Latte', description: 'Chilled espresso poured over fresh cold milk and ice', pricePaise: 24000, isVeg: true, recipe: [{ itemKey: 'coffee', qty: 0.02 }, { itemKey: 'milk', qty: 0.2 }, { itemKey: 'sugar', qty: 0.02 }, { itemKey: 'cups', qty: 1 }] },
+        { name: 'Iced Caramel Latte', description: 'Chilled espresso poured over fresh cold milk and ice', pricePence: 24000, isVeg: true, recipe: [{ itemKey: 'coffee', qty: 0.02 }, { itemKey: 'milk', qty: 0.2 }, { itemKey: 'sugar', qty: 0.02 }, { itemKey: 'cups', qty: 1 }] },
       ],
     },
   ];
@@ -459,7 +459,7 @@ async function main() {
             category: itemTpl.category,
             unit: itemTpl.unit,
             reorderThreshold: itemTpl.reorderThreshold,
-            unitCostPaise: itemTpl.unitCostPaise,
+            unitCostPence: itemTpl.unitCostPence,
             outletId: outlet.id,
           },
         });
@@ -476,7 +476,7 @@ async function main() {
               sku: `SUP-${itemTpl.skuPrefix}`,
               category: itemTpl.category,
               unit: itemTpl.unit,
-              pricePaise: Math.round(itemTpl.unitCostPaise * 0.88), // 12% below the outlet's cost price
+              pricePence: Math.round(itemTpl.unitCostPence * 0.88), // 12% below the outlet's cost price
               minOrderQty: 5,
               inStock: true,
               leadTimeHours: 24,
@@ -492,7 +492,7 @@ async function main() {
             quantity: itemTpl.initialQty,
             expiryDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
             batchNumber: `BATCH-${sku}-01`,
-            unitCostPaise: itemTpl.unitCostPaise,
+            unitCostPence: itemTpl.unitCostPence,
           },
         });
 
@@ -524,7 +524,7 @@ async function main() {
             data: {
               name: itemTpl.name,
               description: itemTpl.description,
-              pricePaise: itemTpl.pricePaise,
+              pricePence: itemTpl.pricePence,
               isVeg: itemTpl.isVeg,
               dietaryType: (itemTpl as any).dietaryType || (itemTpl.isVeg ? 'VEG' : 'NON_VEG'),
               isActive: true,
@@ -575,7 +575,7 @@ async function main() {
             outletId: outlet.id,
             itemId: createdItemsMap['milk'].id,
             quantity: 2.0,
-            costAtLoggingPaise: 12000,
+            costAtLoggingPence: 12000,
             reason: WasteReasonType.SPOILAGE,
             loggedById: mgrUser.id,
           },
@@ -588,7 +588,7 @@ async function main() {
             outletId: outlet.id,
             itemId: createdItemsMap['cheese'].id,
             quantity: 5.0,
-            costAtLoggingPaise: 2500,
+            costAtLoggingPence: 2500,
             reason: WasteReasonType.OVER_PREP,
             loggedById: mgrUser.id,
           },

@@ -3,7 +3,7 @@ import { AppError } from '../../utils/AppError';
 
 export interface CreateOrderParams {
   orderId: string;
-  orderAmount: number; // in Rupees with 2 decimals e.g. 1999.00 or derived from paise
+  orderAmount: number; // in Pounds with 2 decimals e.g. 1999.00 or derived from pence
   orderCurrency?: string;
   customerDetails: {
     customerId: string;

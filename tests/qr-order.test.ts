@@ -65,18 +65,18 @@ describe('ordering from the table QR', () => {
     (prisma.menuItem.findFirst as jest.Mock).mockResolvedValue({
       id: MENU_ITEM_ID,
       name: 'Thali',
-      pricePaise: 100_000,
+      pricePence: 100_000,
       isActive: true,
       outlets: [{ isActive: true }],
       modifierGroups: [],
     });
     (prisma.order.findFirst as jest.Mock).mockResolvedValue(null); // no open bill on the table
-    (prisma.order.findUnique as jest.Mock).mockImplementation(({ where }: any) => ({ id: where.id, orderNumber: 'ALA1', totalPaise: 110_000, payments: [] }));
+    (prisma.order.findUnique as jest.Mock).mockImplementation(({ where }: any) => ({ id: where.id, orderNumber: 'ALA1', totalPence: 110_000, payments: [] }));
     createSpy = jest
       .spyOn(OrderRepository.prototype, 'createOrder')
       .mockImplementation(async (_outletId: string, data: any) => ({ id: 'order-1', outletId: OUTLET.id, ...data }) as any);
     appendSpy = jest.spyOn(OrderRepository.prototype, 'appendItemsToOrder').mockResolvedValue(undefined as any);
-    jest.spyOn(OrderService.prototype, 'recalculateOrder').mockResolvedValue({ id: 'open-bill', totalPaise: 220_000, payments: [] } as any);
+    jest.spyOn(OrderService.prototype, 'recalculateOrder').mockResolvedValue({ id: 'open-bill', totalPence: 220_000, payments: [] } as any);
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -85,13 +85,13 @@ describe('ordering from the table QR', () => {
     await qrOrder({ paymentMethod: 'CARD', paymentStatus: 'CONFIRMED', paymentRef: ' 412345678901 ' });
 
     expect(prisma.payment.create).not.toHaveBeenCalled();
-    expect(createSpy.mock.calls[0][1]).toMatchObject({ placedByName: 'Customer (QR)', placedByRole: 'QR', totalPaise: 110_000 });
+    expect(createSpy.mock.calls[0][1]).toMatchObject({ placedByName: 'Customer (QR)', placedByRole: 'QR', totalPence: 110_000 });
   });
 
   it('ignores a discount or coupon sent from the diner\'s phone', async () => {
     await qrOrder({ discountAmount: 1_000, couponCode: 'FREE', couponId: '33333333-3333-3333-3333-333333333333' });
 
-    expect(createSpy.mock.calls[0][1]).toMatchObject({ discountPaise: 0, totalPaise: 110_000, couponId: undefined, couponCode: undefined });
+    expect(createSpy.mock.calls[0][1]).toMatchObject({ discountPence: 0, totalPence: 110_000, couponId: undefined, couponCode: undefined });
     expect(prisma.restaurantCoupon.updateMany).not.toHaveBeenCalled();
   });
 

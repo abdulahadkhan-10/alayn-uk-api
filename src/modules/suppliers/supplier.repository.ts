@@ -34,7 +34,7 @@ export class SupplierRepository {
         sku: data.sku || null,
         category: data.category,
         unit: data.unit,
-        pricePaise: data.pricePaise,
+        pricePence: data.pricePence,
         minOrderQty: data.minOrderQty ?? 1,
         inStock: data.inStock ?? true,
         leadTimeHours: data.leadTimeHours ?? 24,
@@ -71,7 +71,7 @@ export class SupplierRepository {
         ...(data.sku !== undefined ? { sku: data.sku } : {}),
         ...(data.category !== undefined ? { category: data.category } : {}),
         ...(data.unit !== undefined ? { unit: data.unit } : {}),
-        ...(data.pricePaise !== undefined ? { pricePaise: data.pricePaise } : {}),
+        ...(data.pricePence !== undefined ? { pricePence: data.pricePence } : {}),
         ...(data.minOrderQty !== undefined ? { minOrderQty: data.minOrderQty } : {}),
         ...(data.inStock !== undefined ? { inStock: data.inStock } : {}),
         ...(data.leadTimeHours !== undefined ? { leadTimeHours: data.leadTimeHours } : {}),
@@ -91,7 +91,7 @@ export class SupplierRepository {
     search?: string;
     category?: string;
     inStockOnly?: boolean;
-    maxPricePaise?: number;
+    maxPricePence?: number;
   }) {
     const where: any = {
       deletedAt: null,
@@ -117,8 +117,8 @@ export class SupplierRepository {
       ];
     }
 
-    if (params.maxPricePaise && params.maxPricePaise > 0) {
-      where.pricePaise = { lte: params.maxPricePaise };
+    if (params.maxPricePence && params.maxPricePence > 0) {
+      where.pricePence = { lte: params.maxPricePence };
     }
 
     return (prisma as any).supplierItem.findMany({
@@ -138,7 +138,7 @@ export class SupplierRepository {
           },
         },
       },
-      orderBy: [{ inStock: 'desc' }, { pricePaise: 'asc' }],
+      orderBy: [{ inStock: 'desc' }, { pricePence: 'asc' }],
     });
   }
 
@@ -191,12 +191,12 @@ export class SupplierRepository {
   ): Promise<string[]> {
     const orderBy =
       sort === 'PRICE'
-        ? [{ _min: { pricePaise: 'asc' } }, { supplierId: 'asc' }]
-        : [{ _min: { leadTimeHours: 'asc' } }, { _min: { pricePaise: 'asc' } }, { supplierId: 'asc' }];
+        ? [{ _min: { pricePence: 'asc' } }, { supplierId: 'asc' }]
+        : [{ _min: { leadTimeHours: 'asc' } }, { _min: { pricePence: 'asc' } }, { supplierId: 'asc' }];
     const groups = await (prisma as any).supplierItem.groupBy({
       by: ['supplierId'],
       where: itemWhere,
-      _min: { pricePaise: true, leadTimeHours: true },
+      _min: { pricePence: true, leadTimeHours: true },
       orderBy,
       skip,
       take,
@@ -225,7 +225,7 @@ export class SupplierRepository {
     return (prisma as any).supplierItem.groupBy({
       by: ['supplierId'],
       where: { ...itemWhere, supplierId: { in: ids } },
-      _min: { pricePaise: true },
+      _min: { pricePence: true },
     });
   }
 
@@ -253,10 +253,10 @@ export class SupplierRepository {
         supplierId: true,
         name: true,
         unit: true,
-        pricePaise: true,
+        pricePence: true,
         inStock: true,
       },
-      orderBy: [{ pricePaise: 'asc' }, { id: 'asc' }],
+      orderBy: [{ pricePence: 'asc' }, { id: 'asc' }],
     });
   }
 
@@ -312,7 +312,7 @@ export class SupplierRepository {
           },
         },
       },
-      orderBy: { pricePaise: 'asc' },
+      orderBy: { pricePence: 'asc' },
     });
   }
 }
