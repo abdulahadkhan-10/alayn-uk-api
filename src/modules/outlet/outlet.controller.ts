@@ -112,31 +112,29 @@ export class OutletController {
     try {
       const outletId = (req as any).outletId;
       const businessId = req.user?.businessId;
-      // serviceTaxRate = service CHARGE % (dine-in only, voluntary; GST applies on it)
-      const { cgstRate, sgstRate, serviceTaxRate, gstRegistrationType } = req.body;
+      // serviceTaxRate = service CHARGE % (dine-in only, voluntary; outside the scope of VAT)
+      const { vatRate, serviceTaxRate, vatRegistered } = req.body;
       if (!outletId) {
         throw new AppError('VALIDATION_ERROR', 'Outlet ID context is required', 400);
       }
-      const parsedCgst = parseFloat(cgstRate);
-      const parsedSgst = parseFloat(sgstRate);
+      const parsedVat = parseFloat(vatRate);
       const parsedServiceTax = parseFloat(serviceTaxRate) || 0;
       if (
-        isNaN(parsedCgst) || isNaN(parsedSgst) ||
-        parsedCgst < 0 || parsedSgst < 0 || parsedServiceTax < 0 ||
-        parsedCgst > 50 || parsedSgst > 50 || parsedServiceTax > 50
+        isNaN(parsedVat) ||
+        parsedVat < 0 || parsedServiceTax < 0 ||
+        parsedVat > 50 || parsedServiceTax > 50
       ) {
-        throw new AppError('VALIDATION_ERROR', 'CGST, SGST and service charge must be percentages between 0 and 50', 400);
+        throw new AppError('VALIDATION_ERROR', 'VAT and service charge must be percentages between 0 and 50', 400);
       }
-      if (gstRegistrationType !== undefined && !['REGULAR', 'COMPOSITION', 'UNREGISTERED'].includes(gstRegistrationType)) {
-        throw new AppError('VALIDATION_ERROR', 'GST registration type must be REGULAR, COMPOSITION or UNREGISTERED', 400);
+      if (vatRegistered !== undefined && typeof vatRegistered !== 'boolean') {
+        throw new AppError('VALIDATION_ERROR', 'vatRegistered must be true or false', 400);
       }
       const result = await this.service.updateTaxRates(
         outletId,
-        parsedCgst,
-        parsedSgst,
+        parsedVat,
         parsedServiceTax,
         businessId || undefined,
-        gstRegistrationType
+        vatRegistered
       );
       return sendSuccess(res, result);
     } catch (error) {
@@ -148,11 +146,11 @@ export class OutletController {
     try {
       const outletId = (req as any).outletId;
       const businessId = req.user?.businessId;
-      const { phone, gstin, receiptTagline, receiptFooter } = req.body;
+      const { phone, vatNumber, receiptTagline, receiptFooter } = req.body;
       if (!outletId) {
         throw new AppError('VALIDATION_ERROR', 'Outlet ID context is required', 400);
       }
-      const result = await this.service.updateReceiptDetails(outletId, { phone, gstin, receiptTagline, receiptFooter }, businessId || undefined);
+      const result = await this.service.updateReceiptDetails(outletId, { phone, vatNumber, receiptTagline, receiptFooter }, businessId || undefined);
       return sendSuccess(res, result);
     } catch (error) {
       next(error);

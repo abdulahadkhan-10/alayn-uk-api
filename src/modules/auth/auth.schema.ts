@@ -58,7 +58,7 @@ export const registerSupplierSchema = z.object({
     contactPerson: z.string().trim().min(2).max(100),
     address: z.string().trim().min(3).max(300),
     category: z.string().trim().min(2).max(100).optional(),
-    gstNumber: z.string().trim().max(30).optional(),
+    vatNumber: z.string().trim().max(30).optional(),
     deliveryTerms: z.string().trim().max(200).optional(),
   }),
 });

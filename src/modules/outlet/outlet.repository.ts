@@ -155,17 +155,15 @@ export class OutletRepository {
 
   async updateTaxRates(
     outletId: string,
-    cgstRateDecimal: number,
-    sgstRateDecimal: number,
+    vatRateDecimal: number,
     serviceTaxRateDecimal: number = 0,
     businessId?: string,
-    gstRegistrationType?: 'REGULAR' | 'COMPOSITION' | 'UNREGISTERED'
+    vatRegistered?: boolean
   ) {
     const updateData: Record<string, any> = {
-      cgstRateDecimal,
-      sgstRateDecimal,
+      vatRateDecimal,
       serviceTaxRateDecimal,
-      ...(gstRegistrationType ? { gstRegistrationType } : {}),
+      ...(vatRegistered !== undefined ? { vatRegistered } : {}),
     };
     if (outletId === "all" && businessId) {
       return prisma.outlet.updateMany({
@@ -181,12 +179,12 @@ export class OutletRepository {
 
   async updateReceiptDetails(
     outletId: string,
-    data: { phone?: string; gstin?: string; receiptTagline?: string; receiptFooter?: string },
+    data: { phone?: string; vatNumber?: string; receiptTagline?: string; receiptFooter?: string },
     businessId?: string
   ) {
     const updateData: Record<string, any> = {};
     if (data.phone !== undefined) updateData.phone = data.phone;
-    if (data.gstin !== undefined) updateData.gstin = data.gstin;
+    if (data.vatNumber !== undefined) updateData.vatNumber = data.vatNumber;
     if (data.receiptTagline !== undefined) updateData.receiptTagline = data.receiptTagline;
     if (data.receiptFooter !== undefined) updateData.receiptFooter = data.receiptFooter;
 

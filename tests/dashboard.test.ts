@@ -17,11 +17,11 @@ const ist = (day: number, hhmm: string) => {
   return new Date(Date.UTC(2026, 9, day, h, m) - 330 * 60 * 1000);
 };
 
-type FakeOrder = { id: string; status: string; createdAt: Date; subtotalPaise: number; taxPaise: number; totalPaise: number; discountPaise?: number; cgstPaise?: number; sgstPaise?: number; serviceTaxPaise?: number };
+type FakeOrder = { id: string; status: string; createdAt: Date; subtotalPaise: number; taxPaise: number; totalPaise: number; discountPaise?: number; vatPaise?: number; serviceTaxPaise?: number };
 
 // Brew Bay Bandra — Saturday 10 Oct 2026
 const RAW_ORDERS: FakeOrder[] = [
-  // Settled lunch & dinner: ₹20,000 food + ₹1,000 GST
+  // Settled lunch & dinner: £20,000 food + £1,000 VAT
   { id: 'o1', status: 'COMPLETED', createdAt: ist(10, '13:00'), subtotalPaise: 1_000_000, taxPaise: 50_000, totalPaise: 1_050_000 },
   { id: 'o2', status: 'COMPLETED', createdAt: ist(10, '20:00'), subtotalPaise: 1_000_000, taxPaise: 50_000, totalPaise: 1_050_000 },
   // Still eating, unpaid
@@ -35,8 +35,7 @@ const RAW_ORDERS: FakeOrder[] = [
 const ORDERS: FakeOrder[] = RAW_ORDERS.map((o) => ({
   discountPaise: 0,
   serviceTaxPaise: 0,
-  cgstPaise: o.taxPaise / 2,
-  sgstPaise: o.taxPaise / 2,
+  vatPaise: o.taxPaise,
   ...o,
 }));
 
@@ -66,10 +65,10 @@ describe('Dashboard numbers', () => {
   afterEach(() => jest.useRealTimers());
 
   describe('16a/16b — revenue is settled sales before tax', () => {
-    it("counts only settled orders' subtotals, and reports GST and open bills separately", async () => {
+    it("counts only settled orders' subtotals, and reports VAT and open bills separately", async () => {
       const kpis: any = await service.getKpis('outlet-1', 'biz-1', 'TODAY');
 
-      expect(kpis.totalRevenue.value).toBe('₹20,000'); // not ₹21,000 (GST) or ₹24,000 (+ open bills)
+      expect(kpis.totalRevenue.value).toBe('₹20,000'); // not ₹21,000 (VAT) or ₹24,000 (+ open bills)
       expect(kpis.taxCollected.value).toBe('₹1,000');
       expect(kpis.openBills).toEqual({ value: '₹3,000', count: 1 });
       expect(kpis.avgOrderValue.value).toBe('₹10,000');
@@ -83,7 +82,7 @@ describe('Dashboard numbers', () => {
 
     const withExtra = (extra: Array<{ id: string; createdAt: Date; subtotalPaise: number }>) => {
       const made: FakeOrder[] = extra.map((e) => ({
-        status: 'COMPLETED', taxPaise: 0, totalPaise: e.subtotalPaise, discountPaise: 0, serviceTaxPaise: 0, cgstPaise: 0, sgstPaise: 0, ...e,
+        status: 'COMPLETED', taxPaise: 0, totalPaise: e.subtotalPaise, discountPaise: 0, serviceTaxPaise: 0, vatPaise: 0, ...e,
       }));
       (prisma.order.findMany as jest.Mock).mockImplementation(({ where }: any) =>
         [...ORDERS, ...made].filter((o) => matches(o, where)),

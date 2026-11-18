@@ -14,9 +14,9 @@ const AMBIGUOUS_LANGUAGE = /\b(java|ruby|rust|swift|react)\s+(code|program|progr
 // Words that only make sense for software work
 const SOFTWARE_WORK = /\b(source code|coding|programming|debug|debugging|compile|compiler|refactor|syntax|regex|stack ?trace)\b/;
 
-// "write/give me/show me ... code", but not a discount code, QR code, HSN code...
+// "write/give me/show me ... code", but not a discount code, QR code, VAT code...
 const WRITE_CODE =
-  /\b(write|give me|show me|send me|generate|fix)\b[^.?!\n]{0,30}(?<!\b(?:discount|promo|coupon|voucher|qr|referral|offer|hsn|sac|gst|dress|pin|zip|bar|tax)\s)\bcode\b/;
+  /\b(write|give me|show me|send me|generate|fix)\b[^.?!\n]{0,30}(?<!\b(?:discount|promo|coupon|voucher|qr|referral|offer|vat|dress|pin|zip|bar|tax)\s)\bcode\b/;
 
 // Pasted code
 const CODE_TEXT = [/```/, /\bdef\s+\w+\s*\(/, /\bfunction\s+\w+\s*\(/, /\bconsole\.log\(/, /\bimport\s+[\w{},*\s]+\s+from\s+['"]/, /#include\s*</];

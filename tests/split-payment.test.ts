@@ -122,7 +122,7 @@ describe('summarizePayments', () => {
 describe('settling a bill with a split payment', () => {
   const service = new OrderService();
 
-  // Counter bill: ₹271.43 + 5% GST = ₹285.00
+  // Counter bill: £285.00 (VAT included in the price)
   const openBill = (overrides: any = {}) => ({
     id: 'order-1',
     outletId: 'outlet-1',
@@ -130,15 +130,14 @@ describe('settling a bill with a split payment', () => {
     status: 'SERVED',
     tableNumber: null,
     discountPaise: 0,
-    subtotalPaise: 27_143,
+    subtotalPaise: 28_500,
     totalPaise: 28_500,
     serviceChargeWaived: false,
     settlementKey: null,
-    cgstRate: dec(2.5),
-    sgstRate: dec(2.5),
+    vatRate: dec(20),
     serviceChargeRate: dec(0),
-    items: [{ id: 'item-1', unitPricePaise: 27_143, quantity: 1, status: 'SERVED' }],
-    outlet: { businessId: 'biz-1', cgstRateDecimal: dec(2.5), sgstRateDecimal: dec(2.5), serviceTaxRateDecimal: dec(0), gstRegistrationType: 'REGULAR' },
+    items: [{ id: 'item-1', unitPricePaise: 28_500, quantity: 1, status: 'SERVED' }],
+    outlet: { businessId: 'biz-1', vatRateDecimal: dec(20), serviceTaxRateDecimal: dec(0), vatRegistered: true },
     payments: [{ id: 'p0', method: 'UPI', amountPaise: 28_500, status: 'PENDING' }],
     ...overrides,
   });

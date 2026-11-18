@@ -24,10 +24,9 @@ const toRate = (value: DecimalLike, fallback = 0) =>
   value === null || value === undefined ? fallback : typeof value === 'number' ? value : value.toNumber();
 
 /** The outlet's currently configured rates (service charge % is stored in the historical serviceTaxRateDecimal column). */
-function outletBillRates(outlet: { cgstRateDecimal: DecimalLike; sgstRateDecimal: DecimalLike; serviceTaxRateDecimal?: DecimalLike }): BillRates {
+function outletBillRates(outlet: { vatRateDecimal: DecimalLike; serviceTaxRateDecimal?: DecimalLike }): BillRates {
   return {
-    cgstRate: toRate(outlet.cgstRateDecimal),
-    sgstRate: toRate(outlet.sgstRateDecimal),
+    vatRate: toRate(outlet.vatRateDecimal),
     serviceChargeRate: toRate(outlet.serviceTaxRateDecimal),
   };
 }
@@ -38,13 +37,11 @@ function billToOrderFields(bill: BillTotals, rates: BillRates) {
     subtotalPaise: bill.subtotalPaise,
     discountPaise: bill.discountPaise,
     serviceTaxPaise: bill.serviceChargePaise,
-    cgstPaise: bill.cgstPaise,
-    sgstPaise: bill.sgstPaise,
-    taxPaise: bill.cgstPaise + bill.sgstPaise + bill.serviceChargePaise,
+    vatPaise: bill.vatPaise,
+    taxPaise: bill.vatPaise + bill.serviceChargePaise,
     roundOffPaise: bill.roundOffPaise,
     totalPaise: bill.totalPaise,
-    cgstRate: new Prisma.Decimal(rates.cgstRate),
-    sgstRate: new Prisma.Decimal(rates.sgstRate),
+    vatRate: new Prisma.Decimal(rates.vatRate),
     serviceChargeRate: new Prisma.Decimal(rates.serviceChargeRate),
   };
 }
@@ -87,8 +84,7 @@ export class OrderService {
     // Older bills created before rate snapshots existed take the outlet's current rates once
     const configured = outletBillRates(order.outlet);
     const rates: BillRates = {
-      cgstRate: toRate(order.cgstRate, configured.cgstRate),
-      sgstRate: toRate(order.sgstRate, configured.sgstRate),
+      vatRate: toRate(order.vatRate, configured.vatRate),
       serviceChargeRate: toRate(order.serviceChargeRate, configured.serviceChargeRate),
     };
 
@@ -97,7 +93,7 @@ export class OrderService {
       dineIn: isDineIn(order.source),
       serviceChargeWaived: order.serviceChargeWaived,
       discountPaise: order.discountPaise,
-      gstRegistrationType: order.outlet.gstRegistrationType,
+      vatRegistered: order.outlet.vatRegistered,
     });
 
     return tx.order.update({
@@ -378,7 +374,7 @@ export class OrderService {
     const bill = calculateBill(itemDetails, rates, {
       dineIn: isDineIn(resolvedSource),
       discountPaise,
-      gstRegistrationType: outlet.gstRegistrationType,
+      vatRegistered: outlet.vatRegistered,
     });
 
     // How the diner says they paid lives on their payment record (method, amount, approval code), not in this name
@@ -499,8 +495,7 @@ export class OrderService {
       tableNo: order.tableNumber !== null && order.tableNumber !== undefined ? String(order.tableNumber) : undefined,
       subtotal: (order.subtotalPaise || 0) / 100,
       taxAmount: (order.taxPaise || 0) / 100,
-      cgstAmount: (order.cgstPaise || 0) / 100,
-      sgstAmount: (order.sgstPaise || 0) / 100,
+      vatAmount: (order.vatPaise || 0) / 100,
       serviceTaxAmount: (order.serviceTaxPaise || 0) / 100, // kept for older screens
       serviceChargeAmount: (order.serviceTaxPaise || 0) / 100,
       discountAmount: (order.discountPaise || 0) / 100,
@@ -509,14 +504,13 @@ export class OrderService {
       roundOffAmount: (order.roundOffPaise || 0) / 100,
       totalAmount: (order.totalPaise || 0) / 100,
       // Rates used on THIS bill (null on bills created before snapshots existed)
-      cgstRate: order.cgstRate !== null && order.cgstRate !== undefined ? Number(order.cgstRate) : null,
-      sgstRate: order.sgstRate !== null && order.sgstRate !== undefined ? Number(order.sgstRate) : null,
+      vatRate: order.vatRate !== null && order.vatRate !== undefined ? Number(order.vatRate) : null,
       serviceChargeRate:
         order.serviceChargeRate !== null && order.serviceChargeRate !== undefined ? Number(order.serviceChargeRate) : null,
       serviceChargeWaived: !!order.serviceChargeWaived,
       serviceChargeWaiveReason: order.serviceChargeWaiveReason || null,
       isDineIn: isDineIn(order.source),
-      gstRegistrationType: order.outlet?.gstRegistrationType || 'REGULAR',
+      vatRegistered: order.outlet?.vatRegistered ?? true,
       placedByName: order.placedByName || (order.source === 'QR' ? 'Customer (QR)' : 'Staff'),
       placedByRole: order.placedByRole || (order.source === 'QR' ? 'QR' : 'STAFF'),
       // paymentMethod, paymentStatus, paymentSplits, paidAmount, balanceDue
@@ -1078,10 +1072,9 @@ export class OrderService {
       allowPayAtCounter: (tokenRecord.outlet as any)?.allowPayAtCounter ?? true,
       currency: 'GBP',
       taxRates: {
-        cgstRate: Number(tokenRecord.outlet?.cgstRateDecimal ?? 2.5),
-        sgstRate: Number(tokenRecord.outlet?.sgstRateDecimal ?? 2.5),
+        vatRate: Number(tokenRecord.outlet?.vatRateDecimal ?? 20),
         serviceChargeRate: Number(tokenRecord.outlet?.serviceTaxRateDecimal ?? 0),
-        gstRegistrationType: tokenRecord.outlet?.gstRegistrationType ?? 'REGULAR',
+        vatRegistered: tokenRecord.outlet?.vatRegistered ?? true,
       },
       // Don't show category tabs that have nothing orderable right now
       categories: transformedCategories,

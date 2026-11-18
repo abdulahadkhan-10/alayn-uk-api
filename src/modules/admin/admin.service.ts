@@ -43,7 +43,7 @@ export class AdminService {
         state: outlet.state,
         country: outlet.country,
         phone: outlet.phone,
-        gstin: outlet.gstin,
+        vatNumber: outlet.vatNumber,
         openingTime: outlet.openingTime,
         closingTime: outlet.closingTime,
         subscriptionStatus: outlet.subscription?.status || 'PENDING_PAYMENT',

@@ -5,22 +5,21 @@
  * with no money on it; the bill is always calculated from ALL items on the order with this function,
  * recalculated whenever the bill changes, and frozen at settlement. Never add amounts round by round.
  *
- *   subtotal       = Σ unit price × qty
- *   net            = subtotal − discount
- *   service charge = net × rate         (dine-in only; voluntary — the customer may ask to remove it)
- *   taxable value  = net + service charge   (GST applies on service charge: part of value of supply, CGST Act s.15)
- *   CGST / SGST    = taxable × rate         (none for Composition / Unregistered businesses)
- *   total          = the exact gross amount (bills are not rounded)
+ * UK pricing: menu prices INCLUDE VAT, so VAT is the part of the price already paid, not an extra.
  *
- * The frontend POS preview mirrors this in alayn-frontend/src/lib/billing.ts — keep them in sync.
+ *   subtotal       = Σ unit price × qty          (VAT-inclusive)
+ *   net            = subtotal − discount
+ *   VAT            = net × rate / (100 + rate)   (0 when the outlet isn't VAT-registered)
+ *   service charge = net × rate                  (dine-in only; voluntary — the customer may ask to
+ *                                                 remove it, so it is outside the scope of VAT)
+ *   total          = net + service charge        (bills are not rounded)
+ *
+ * The frontend POS preview mirrors this in alayn-uk/src/lib/billing.ts — keep them in sync.
  */
 
-export type GstRegistrationType = 'REGULAR' | 'COMPOSITION' | 'UNREGISTERED';
-
 export interface BillRates {
-  /** Percentages, e.g. 2.5 for 2.5% */
-  cgstRate: number;
-  sgstRate: number;
+  /** Percentages, e.g. 20 for 20% */
+  vatRate: number;
   serviceChargeRate: number;
 }
 
@@ -29,7 +28,8 @@ export interface BillOptions {
   dineIn: boolean;
   serviceChargeWaived?: boolean;
   discountPaise?: number;
-  gstRegistrationType?: GstRegistrationType;
+  /** false: the outlet is below the VAT threshold, so its bills carry no VAT */
+  vatRegistered?: boolean;
 }
 
 export interface BillLine {
@@ -41,9 +41,9 @@ export interface BillTotals {
   subtotalPaise: number;
   discountPaise: number;
   serviceChargePaise: number;
-  taxableValuePaise: number;
-  cgstPaise: number;
-  sgstPaise: number;
+  /** Value of the goods excluding VAT (net − VAT) */
+  netOfVatPaise: number;
+  vatPaise: number;
   roundOffPaise: number;
   totalPaise: number;
   /** Rates actually applied (0 where not applicable) — saved on the order so receipts never drift */
@@ -65,26 +65,17 @@ export function calculateBill(items: BillLine[], rates: BillRates, options: Bill
     options.dineIn && !options.serviceChargeWaived ? Math.max(0, rates.serviceChargeRate || 0) : 0;
   const serviceChargePaise = Math.round((netPaise * serviceChargeRate) / 100);
 
-  const collectsGst = (options.gstRegistrationType || 'REGULAR') === 'REGULAR';
-  const cgstRate = collectsGst ? Math.max(0, rates.cgstRate || 0) : 0;
-  const sgstRate = collectsGst ? Math.max(0, rates.sgstRate || 0) : 0;
-
-  const taxableValuePaise = netPaise + serviceChargePaise;
-  const cgstPaise = Math.round((taxableValuePaise * cgstRate) / 100);
-  const sgstPaise = Math.round((taxableValuePaise * sgstRate) / 100);
-
-  const grossPaise = taxableValuePaise + cgstPaise + sgstPaise;
-  const totalPaise = grossPaise;
+  const vatRate = options.vatRegistered === false ? 0 : Math.max(0, rates.vatRate || 0);
+  const vatPaise = Math.round((netPaise * vatRate) / (100 + vatRate));
 
   return {
     subtotalPaise,
     discountPaise,
     serviceChargePaise,
-    taxableValuePaise,
-    cgstPaise,
-    sgstPaise,
-    roundOffPaise: totalPaise - grossPaise,
-    totalPaise,
-    appliedRates: { cgstRate, sgstRate, serviceChargeRate },
+    netOfVatPaise: netPaise - vatPaise,
+    vatPaise,
+    roundOffPaise: 0,
+    totalPaise: netPaise + serviceChargePaise,
+    appliedRates: { vatRate, serviceChargeRate },
   };
 }

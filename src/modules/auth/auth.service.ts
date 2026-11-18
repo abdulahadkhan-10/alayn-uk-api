@@ -190,7 +190,7 @@ export class AuthService {
         contactPerson: string;
         address: string;
         category?: string;
-        gstNumber?: string;
+        vatNumber?: string;
         deliveryTerms?: string;
       };
     },

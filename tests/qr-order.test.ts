@@ -23,16 +23,15 @@ jest.mock('../src/modules/notifications/notification.service', () => ({
 
 const dec = (n: number) => new Prisma.Decimal(n);
 
-// ₹1000 of food, 10% service charge, 5% GST on food + service charge = ₹1,155 (the customer page used to ask ₹1,150)
+// £1000 of food (VAT included in the price) + 10% service charge = £1,100
 const OUTLET = {
   id: '11111111-1111-1111-1111-111111111111',
   businessId: 'biz-1',
   name: 'Alayn',
   tableOrderMode: 'ORDER_AND_PAY',
-  cgstRateDecimal: dec(2.5),
-  sgstRateDecimal: dec(2.5),
+  vatRateDecimal: dec(20),
   serviceTaxRateDecimal: dec(10),
-  gstRegistrationType: 'REGULAR',
+  vatRegistered: true,
 };
 const MENU_ITEM_ID = '22222222-2222-2222-2222-222222222222';
 
@@ -72,12 +71,12 @@ describe('ordering from the table QR', () => {
       modifierGroups: [],
     });
     (prisma.order.findFirst as jest.Mock).mockResolvedValue(null); // no open bill on the table
-    (prisma.order.findUnique as jest.Mock).mockImplementation(({ where }: any) => ({ id: where.id, orderNumber: 'ALA1', totalPaise: 115_500, payments: [] }));
+    (prisma.order.findUnique as jest.Mock).mockImplementation(({ where }: any) => ({ id: where.id, orderNumber: 'ALA1', totalPaise: 110_000, payments: [] }));
     createSpy = jest
       .spyOn(OrderRepository.prototype, 'createOrder')
       .mockImplementation(async (_outletId: string, data: any) => ({ id: 'order-1', outletId: OUTLET.id, ...data }) as any);
     appendSpy = jest.spyOn(OrderRepository.prototype, 'appendItemsToOrder').mockResolvedValue(undefined as any);
-    jest.spyOn(OrderService.prototype, 'recalculateOrder').mockResolvedValue({ id: 'open-bill', totalPaise: 231_000, payments: [] } as any);
+    jest.spyOn(OrderService.prototype, 'recalculateOrder').mockResolvedValue({ id: 'open-bill', totalPaise: 220_000, payments: [] } as any);
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -86,13 +85,13 @@ describe('ordering from the table QR', () => {
     await qrOrder({ paymentMethod: 'UPI', paymentStatus: 'CONFIRMED', paymentRef: ' 412345678901 ' });
 
     expect(prisma.payment.create).not.toHaveBeenCalled();
-    expect(createSpy.mock.calls[0][1]).toMatchObject({ placedByName: 'Customer (QR)', placedByRole: 'QR', totalPaise: 115_500 });
+    expect(createSpy.mock.calls[0][1]).toMatchObject({ placedByName: 'Customer (QR)', placedByRole: 'QR', totalPaise: 110_000 });
   });
 
   it('ignores a discount or coupon sent from the diner\'s phone', async () => {
     await qrOrder({ discountAmount: 1_000, couponCode: 'FREE', couponId: '33333333-3333-3333-3333-333333333333' });
 
-    expect(createSpy.mock.calls[0][1]).toMatchObject({ discountPaise: 0, totalPaise: 115_500, couponId: undefined, couponCode: undefined });
+    expect(createSpy.mock.calls[0][1]).toMatchObject({ discountPaise: 0, totalPaise: 110_000, couponId: undefined, couponCode: undefined });
     expect(prisma.restaurantCoupon.updateMany).not.toHaveBeenCalled();
   });
 

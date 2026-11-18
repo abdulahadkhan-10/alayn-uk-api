@@ -20,7 +20,7 @@ export interface ReportFilters {
 
 export interface RawOrder {
   id: string; outletId: string; createdAt: Date; source: Channel; status: string;
-  subtotalPaise: number; discountPaise: number; cgstPaise: number; sgstPaise: number; serviceTaxPaise: number;
+  subtotalPaise: number; discountPaise: number; vatPaise: number; serviceTaxPaise: number;
   items: { menuItemId: string; quantity: number; subtotalPaise: number }[];
   payments: { method: 'CARD' | 'CASH' | 'DELIVEROO' | 'UBER_EATS' | 'JUST_EAT' | 'UPI' | 'SWIGGY' | 'ZOMATO' | 'EAZYDINER'; amountPaise: number }[]; // CONFIRMED payments only
 }
@@ -137,7 +137,7 @@ function normalise(orders: RawOrder[], f: ReportFilters, lookups: Lookups): Norm
       // A category filter can't apportion bill-level discount, tax, service charge or payments.
       salesPaise: cats ? lines.reduce((s, l) => s + l.salesPaise, 0) : o.subtotalPaise - o.discountPaise,
       discountPaise: cats ? 0 : o.discountPaise,
-      taxPaise: cats ? 0 : o.cgstPaise + o.sgstPaise,
+      taxPaise: cats ? 0 : o.vatPaise,
       serviceChargePaise: cats ? 0 : o.serviceTaxPaise,
       payments: cats ? [] : o.payments,
     });

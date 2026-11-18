@@ -157,12 +157,6 @@ enum DayOfWeek {
   SUNDAY
 }
 
-enum GstRegistrationType {
-  REGULAR      // Charges CGST/SGST — "Tax Invoice"
-  COMPOSITION  // Composition scheme — cannot collect tax; "Bill of Supply"
-  UNREGISTERED // Below GST threshold — no GST on bills
-}
-
 enum TableType {
   AC
   NON_AC
@@ -286,7 +280,7 @@ model OutletSubscription {
   planCode           String                   @default("MONTHLY_STANDARD")
   planName           String                   @default("Monthly Pro Plan")
   monthlyFeePaise    Int                      @default(199900)
-  taxRatePercent     Decimal                  @default(18.0) @db.Decimal(5, 2)
+  taxRatePercent     Decimal                  @default(20.0) @db.Decimal(5, 2)
   currency           String                   @default("GBP")
   currentPeriodStart DateTime                 @default(now())
   currentPeriodEnd   DateTime
@@ -344,15 +338,15 @@ model Outlet {
   city             String
   state            String
   country          String
-  cgstRateDecimal        Decimal       @default(2.5) @db.Decimal(5, 2)
-  sgstRateDecimal        Decimal       @default(2.5) @db.Decimal(5, 2)
+  // VAT is always included in menu prices (UK consumer pricing)
+  vatRateDecimal         Decimal       @default(20.0) @db.Decimal(5, 2)
+  vatRegistered          Boolean       @default(true)     // false: below the VAT threshold, no VAT on bills
   serviceTaxRateDecimal  Decimal       @default(0.0) @db.Decimal(5, 2) // Service CHARGE % (dine-in only) — historical column name
-  gstRegistrationType    GstRegistrationType @default(REGULAR) // Composition / Unregistered businesses must not charge GST
   operatingDays    String?       // JSON array of operating days, e.g. ["MONDAY", "TUESDAY", ...]
   openingTime      String?       @default("10:00") // Format "HH:MM" e.g. "10:00"
   closingTime      String?       @default("22:00") // Format "HH:MM" e.g. "22:00"
   phone            String?
-  gstin            String?
+  vatNumber        String?       // VAT registration number, printed on receipts
   receiptTagline   String?
   receiptFooter    String?
   upiId            String? // Legacy (UPI QR payments were removed); no longer read or written
@@ -719,7 +713,7 @@ model Supplier {
   type          SupplierType @default(OFFLINE)
   userId        String?      @unique @db.Uuid
   outletId      String?      @db.Uuid
-  gstNumber     String?
+  vatNumber     String?
   rating        Decimal?     @default(5.0) @db.Decimal(3, 2)
   deliveryTerms String?
   createdAt     DateTime     @default(now())
@@ -917,16 +911,14 @@ model Order {
   source        OrderSource
   status        OrderStatus @default(SENT_TO_KITCHEN)
   subtotalPaise Int
-  cgstPaise       Int
-  sgstPaise       Int
+  vatPaise        Int         @default(0) // VAT on this bill (inside the total: prices include VAT)
   serviceTaxPaise Int         @default(0) // Service CHARGE amount (dine-in, voluntary) — historical column name
-  taxPaise        Int                     // cgst + sgst + service charge (kept for compatibility)
+  taxPaise        Int                     // VAT + service charge (kept for compatibility)
   totalPaise    Int
   discountPaise   Int         @default(0)
-  roundOffPaise   Int         @default(0) // Total rounded to the nearest rupee
+  roundOffPaise   Int         @default(0) // Rounding adjustment (bills are not currently rounded)
   // Rates used for this bill (snapshot), so receipts never change when outlet settings change
-  cgstRate          Decimal?  @db.Decimal(5, 2)
-  sgstRate          Decimal?  @db.Decimal(5, 2)
+  vatRate           Decimal?  @db.Decimal(5, 2)
   serviceChargeRate Decimal?  @db.Decimal(5, 2)
   // Service charge is voluntary: removed at the customer's request, with who/why recorded
   serviceChargeWaived      Boolean @default(false)

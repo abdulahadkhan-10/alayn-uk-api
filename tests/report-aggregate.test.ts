@@ -16,7 +16,7 @@ let n = 0;
 function order(o: Partial<RawOrder> & Pick<RawOrder, 'outletId' | 'createdAt' | 'source' | 'subtotalPaise' | 'items'>): RawOrder {
   n += 1;
   return {
-    id: `o${n}`, status: 'COMPLETED', discountPaise: 0, cgstPaise: 0, sgstPaise: 0, serviceTaxPaise: 0, payments: [], ...o,
+    id: `o${n}`, status: 'COMPLETED', discountPaise: 0, vatPaise: 0, serviceTaxPaise: 0, payments: [], ...o,
   };
 }
 
@@ -31,13 +31,13 @@ const lookups: Lookups = {
 
 const currentOrders: RawOrder[] = [
   order({ outletId: 'o1', createdAt: ist(17, 13), source: 'TABLE', subtotalPaise: 100000, discountPaise: 10000,
-    cgstPaise: 2250, sgstPaise: 2250, serviceTaxPaise: 5000,
+    vatPaise: 4500, serviceTaxPaise: 5000,
     items: [{ menuItemId: 'A', quantity: 2, subtotalPaise: 60000 }, { menuItemId: 'C', quantity: 1, subtotalPaise: 40000 }],
     payments: [{ method: 'UPI', amountPaise: 60000 }, { method: 'CASH', amountPaise: 40000 }] }),
-  order({ outletId: 'o1', createdAt: ist(17, 19), source: 'QR', subtotalPaise: 50000, cgstPaise: 1250, sgstPaise: 1250,
+  order({ outletId: 'o1', createdAt: ist(17, 19), source: 'QR', subtotalPaise: 50000, vatPaise: 2500,
     items: [{ menuItemId: 'B', quantity: 2, subtotalPaise: 50000 }],
     payments: [{ method: 'CARD', amountPaise: 52500 }] }),
-  order({ outletId: 'o2', createdAt: ist(17, 14), source: 'COUNTER', subtotalPaise: 80000, cgstPaise: 2000, sgstPaise: 2000,
+  order({ outletId: 'o2', createdAt: ist(17, 14), source: 'COUNTER', subtotalPaise: 80000, vatPaise: 4000,
     items: [{ menuItemId: 'A', quantity: 1, subtotalPaise: 30000 }, { menuItemId: 'B', quantity: 1, subtotalPaise: 50000 }],
     payments: [{ method: 'CASH', amountPaise: 84000 }] }),
   order({ outletId: 'o1', createdAt: ist(18, 12, 30), source: 'DELIVERY', subtotalPaise: 120000, discountPaise: 20000,
@@ -88,7 +88,7 @@ describe('aggregate', () => {
     expect(t.orders).toBe(6);
     expect(t.avgOrderPaise).toBe(68333);
     expect(t.discountPaise).toBe(30000);
-    expect(t.taxPaise).toBe(11000); // cgst + sgst only
+    expect(t.taxPaise).toBe(11000); // VAT only
     expect(t.serviceChargePaise).toBe(5000);
     expect(t.itemsSold).toBe(13);
     expect(t.wastePaise).toBe(10000);

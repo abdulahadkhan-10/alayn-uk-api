@@ -10,7 +10,7 @@ export interface PlanConfig {
   description: string;
   monthlyFeePaise: number; // Monthly fee in pence, including VAT
   yearlyFeePaise: number; // Fee in pence for a 12-month term, including VAT
-  gstRatePercent: number; // UK VAT rate (20%)
+  vatRatePercent: number; // UK VAT rate (20%)
   features: string[];
 }
 
@@ -21,7 +21,7 @@ export const SUBSCRIPTION_PLANS: Record<string, PlanConfig> = {
     description: 'Complete operational suite for 1 physical restaurant branch',
     monthlyFeePaise: parseInt(process.env.OUTLET_MONTHLY_FEE_PAISE || '7900', 10), // £79
     yearlyFeePaise: parseInt(process.env.OUTLET_YEARLY_FEE_PAISE || '60000', 10), // £600
-    gstRatePercent: 20.0,
+    vatRatePercent: 20.0,
     features: [
       'Unlimited POS Billing Counters & Table QR Tokens',
       'Real-time Kitchen Display System (KDS)',
@@ -42,13 +42,13 @@ export class SubscriptionService {
   getPlans() {
     return Object.values(SUBSCRIPTION_PLANS).map((plan) => {
       const totalPounds = plan.monthlyFeePaise / 100;
-      const gstPounds = Math.round((totalPounds - totalPounds / (1 + plan.gstRatePercent / 100)) * 100) / 100;
-      const basePounds = Math.round((totalPounds - gstPounds) * 100) / 100;
+      const vatPounds = Math.round((totalPounds - totalPounds / (1 + plan.vatRatePercent / 100)) * 100) / 100;
+      const basePounds = Math.round((totalPounds - vatPounds) * 100) / 100;
 
       return {
         ...plan,
         basePricePounds: basePounds,
-        gstPounds: gstPounds,
+        vatPounds: vatPounds,
         totalPayablePounds: totalPounds,
         totalPayablePaise: Math.round(totalPounds * 100)
       };
@@ -99,10 +99,10 @@ export class SubscriptionService {
 
     // Plan fees are VAT-inclusive: the customer pays the listed price and VAT is the portion within it
     const totalPounds = Math.round(Math.max(0, rawBasePounds - discountPounds) * 100) / 100;
-    const gstPounds = Math.round((totalPounds - totalPounds / (1 + plan.gstRatePercent / 100)) * 100) / 100;
-    const finalBasePounds = Math.round((totalPounds - gstPounds) * 100) / 100;
+    const vatPounds = Math.round((totalPounds - totalPounds / (1 + plan.vatRatePercent / 100)) * 100) / 100;
+    const finalBasePounds = Math.round((totalPounds - vatPounds) * 100) / 100;
     const totalPaise = Math.round(totalPounds * 100);
-    const gstPaise = Math.round(gstPounds * 100);
+    const vatPaise = Math.round(vatPounds * 100);
     const discountPaise = Math.round(discountPounds * 100);
 
     // Generate unique Cashfree order ID
@@ -161,7 +161,7 @@ export class SubscriptionService {
         orderAmountPounds: 0,
         baseAmountPounds: 0,
         discountPounds,
-        gstAmountPounds: 0,
+        vatAmountPounds: 0,
         currency: 'GBP',
         months: validatedMonths,
         subscription: result.subscription,
@@ -221,7 +221,7 @@ export class SubscriptionService {
       outletSubscriptionId: subRecord.id,
       cfOrderId,
       amountPaise: totalPaise,
-      taxAmountPaise: gstPaise,
+      taxAmountPaise: vatPaise,
       currency: 'GBP',
       paymentSessionId: cfOrder.payment_session_id,
       paymentStatus: SubscriptionPaymentStatus.PENDING,
@@ -238,7 +238,7 @@ export class SubscriptionService {
       orderAmountPounds: totalPounds,
       baseAmountPounds: finalBasePounds,
       discountPounds,
-      gstAmountPounds: gstPounds,
+      vatAmountPounds: vatPounds,
       currency: 'GBP',
       months: validatedMonths,
       coupon: appliedCoupon

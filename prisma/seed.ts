@@ -256,8 +256,7 @@ async function main() {
           city: oData.city,
           state: oData.state,
           country: 'India',
-          cgstRateDecimal: 9.0,
-          sgstRateDecimal: 9.0,
+          vatRateDecimal: 20.0,
           operatingDays: JSON.stringify(daysOfWeekList),
         },
       });

@@ -64,18 +64,17 @@ export class OutletService {
 
   async updateTaxRates(
     outletId: string,
-    cgstRate: number,
-    sgstRate: number,
+    vatRate: number,
     serviceTaxRate: number = 0,
     businessId?: string,
-    gstRegistrationType?: 'REGULAR' | 'COMPOSITION' | 'UNREGISTERED'
+    vatRegistered?: boolean
   ) {
-    return this.repository.updateTaxRates(outletId, cgstRate, sgstRate, serviceTaxRate, businessId, gstRegistrationType);
+    return this.repository.updateTaxRates(outletId, vatRate, serviceTaxRate, businessId, vatRegistered);
   }
 
   async updateReceiptDetails(
     outletId: string,
-    data: { phone?: string; gstin?: string; receiptTagline?: string; receiptFooter?: string },
+    data: { phone?: string; vatNumber?: string; receiptTagline?: string; receiptFooter?: string },
     businessId?: string
   ) {
     return this.repository.updateReceiptDetails(outletId, data, businessId);

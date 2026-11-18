@@ -30,7 +30,7 @@ const STAFF_ORDER: StaffStatus[] = ['not_in', 'in', 'upcoming', 'left', 'leave',
 /*
  * Money rules used everywhere on the dashboard:
  *  - Revenue = SETTLED (COMPLETED) orders only, measured BEFORE taxes (order subtotal).
- *    GST / service charge collected is reported separately — it isn't the outlet's income.
+ *    VAT / service charge collected is reported separately — it isn't the outlet's income.
  *  - Orders still open (in the kitchen / unpaid) are reported separately as "open bills".
  *  - All dates and hours are UK time (see utils/outletTime), not the server's UTC clock.
  */
@@ -118,11 +118,11 @@ export class DashboardService {
   private async periodFigures(scope: ScopeFilter, startDate: Date, endDate: Date) {
     const settledOrders = await prisma.order.findMany({
       where: { ...scope, status: SETTLED, createdAt: { gte: startDate, lte: endDate }, deletedAt: null },
-      select: { id: true, subtotalPaise: true, discountPaise: true, cgstPaise: true, sgstPaise: true, serviceTaxPaise: true },
+      select: { id: true, subtotalPaise: true, discountPaise: true, vatPaise: true, serviceTaxPaise: true },
     });
-    // Net food sales (after discount). GST is the government's; service charge is reported separately.
+    // Net food sales (after discount). VAT is the government's; service charge is reported separately.
     const revenuePaise = settledOrders.reduce((sum, o) => sum + o.subtotalPaise - o.discountPaise, 0);
-    const taxPaise = settledOrders.reduce((sum, o) => sum + o.cgstPaise + o.sgstPaise, 0);
+    const taxPaise = settledOrders.reduce((sum, o) => sum + o.vatPaise, 0);
     const serviceChargePaise = settledOrders.reduce((sum, o) => sum + o.serviceTaxPaise, 0);
 
     const waste = await prisma.wasteLog.findMany({
@@ -217,7 +217,7 @@ export class DashboardService {
       },
       laborCosts: { value: `${activeStaffCount} Staff`, change: `${diffStaff >= 0 ? '+' : ''}${diffStaff}`, isPositive: diffStaff >= 0 },
       // Reported separately from revenue
-      taxCollected: { value: formatCurrency(current.taxPaise) }, // CGST + SGST only
+      taxCollected: { value: formatCurrency(current.taxPaise) }, // VAT only
       serviceCharge: { value: formatCurrency(current.serviceChargePaise) },
       openBills: { value: formatCurrency(openBillsPaise), count: openOrders.length },
     };

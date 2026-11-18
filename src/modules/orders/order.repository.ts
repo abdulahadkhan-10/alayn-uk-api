@@ -18,15 +18,13 @@ export class OrderRepository {
     source: 'TABLE' | 'COUNTER' | 'QR' | 'DELIVERY';
     status: 'SENT_TO_KITCHEN';
     subtotalPaise: number;
-    cgstPaise: number;
-    sgstPaise: number;
+    vatPaise: number;
     serviceTaxPaise?: number;
     taxPaise: number;
     totalPaise: number;
     discountPaise?: number;
     roundOffPaise?: number;
-    cgstRate?: Prisma.Decimal;
-    sgstRate?: Prisma.Decimal;
+    vatRate?: Prisma.Decimal;
     serviceChargeRate?: Prisma.Decimal;
     placedByName?: string;
     placedByRole?: string;
@@ -43,15 +41,13 @@ export class OrderRepository {
       source: data.source,
       status: data.status as any,
       subtotalPaise: data.subtotalPaise,
-      cgstPaise: data.cgstPaise,
-      sgstPaise: data.sgstPaise,
+      vatPaise: data.vatPaise,
       serviceTaxPaise: data.serviceTaxPaise || 0,
       taxPaise: data.taxPaise,
       totalPaise: data.totalPaise,
       discountPaise: data.discountPaise || 0,
       roundOffPaise: data.roundOffPaise || 0,
-      cgstRate: data.cgstRate,
-      sgstRate: data.sgstRate,
+      vatRate: data.vatRate,
       serviceChargeRate: data.serviceChargeRate,
       placedByName: data.placedByName,
       placedByRole: data.placedByRole,

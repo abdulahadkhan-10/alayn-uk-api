@@ -22,66 +22,63 @@ jest.mock('../src/modules/notifications/notification.service', () => ({
   NotificationService: { notifyOrderPlaced: jest.fn().mockResolvedValue(undefined), notifyOrderReady: jest.fn().mockResolvedValue(undefined) },
 }));
 
-const dec = (n: number) => new Prisma.Decimal(n);
-const RATES = { cgstRate: 2.5, sgstRate: 2.5, serviceChargeRate: 10 };
 
-// Table 1 from the real bill: round 1 Kepsa ₹100 + Chocolate Cake ₹850, round 2 Butter Chicken ₹500
+const dec = (n: number) => new Prisma.Decimal(n);
+const RATES = { vatRate: 20, serviceChargeRate: 10 };
+
+// Table 1: Chicken Burger £12 + Fries £4. Menu prices include VAT.
 const TABLE_1_ITEMS = [
-  { unitPricePaise: 10_000, quantity: 1 },
-  { unitPricePaise: 85_000, quantity: 1 },
-  { unitPricePaise: 50_000, quantity: 1 },
+  { unitPricePaise: 1_200, quantity: 1 },
+  { unitPricePaise: 400, quantity: 1 },
 ];
 
-describe('calculateBill — the single bill calculation', () => {
-  it('Table 1: service charge on the whole bill, GST on food + service charge, rounded to the rupee', () => {
+describe('calculateBill — the single bill calculation (prices include VAT)', () => {
+  it('Table 1: VAT is the part of the price already paid; service charge is added on top', () => {
     const bill = calculateBill(TABLE_1_ITEMS, RATES, { dineIn: true });
     expect(bill).toMatchObject({
-      subtotalPaise: 145_000,
-      serviceChargePaise: 14_500, // ₹145 (not ₹95)
-      taxableValuePaise: 159_500,
-      cgstPaise: 3_988, // ₹39.88
-      sgstPaise: 3_988,
-      roundOffPaise: 24, // +₹0.24
-      totalPaise: 167_500, // ₹1,675.00
+      subtotalPaise: 1_600,
+      vatPaise: 267, // £16 × 20/120 = £2.67
+      netOfVatPaise: 1_333,
+      serviceChargePaise: 160, // 10% of £16
+      roundOffPaise: 0,
+      totalPaise: 1_760, // £16 + £1.60 service charge (no VAT on a voluntary service charge)
     });
   });
 
-  it('no service charge on counter / takeaway orders', () => {
+  it('no service charge on counter / takeaway orders, and the total is the menu price', () => {
     const bill = calculateBill(TABLE_1_ITEMS, RATES, { dineIn: false });
     expect(bill.serviceChargePaise).toBe(0);
-    expect(bill.cgstPaise).toBe(3_625); // 2.5% of ₹1,450
+    expect(bill.vatPaise).toBe(267);
+    expect(bill.totalPaise).toBe(1_600);
     expect(bill.appliedRates.serviceChargeRate).toBe(0);
   });
 
   it('removes the service charge when the customer declines it', () => {
     const bill = calculateBill(TABLE_1_ITEMS, RATES, { dineIn: true, serviceChargeWaived: true });
     expect(bill.serviceChargePaise).toBe(0);
-    expect(bill.totalPaise).toBe(152_300); // 1,450 + 36.25 + 36.25 = ₹1,522.50 → ₹1,523
+    expect(bill.totalPaise).toBe(1_600);
   });
 
-  it.each(['COMPOSITION', 'UNREGISTERED'] as const)('%s businesses do not charge GST', (type) => {
-    const bill = calculateBill(TABLE_1_ITEMS, RATES, { dineIn: true, gstRegistrationType: type });
-    expect(bill.cgstPaise).toBe(0);
-    expect(bill.sgstPaise).toBe(0);
-    expect(bill.serviceChargePaise).toBe(14_500);
-    expect(bill.totalPaise).toBe(159_500);
+  it('outlets that are not VAT-registered show no VAT; the price is unchanged', () => {
+    const bill = calculateBill(TABLE_1_ITEMS, RATES, { dineIn: true, vatRegistered: false });
+    expect(bill.vatPaise).toBe(0);
+    expect(bill.appliedRates.vatRate).toBe(0);
+    expect(bill.serviceChargePaise).toBe(160);
+    expect(bill.totalPaise).toBe(1_760);
   });
 
-  it('rounds up and down to the nearest rupee', () => {
-    // ₹999: CGST/SGST ₹24.98 each → ₹1,048.96 → ₹1,049 (+0.04)
-    const up = calculateBill([{ unitPricePaise: 99_900, quantity: 1 }], RATES, { dineIn: false });
-    expect(up.totalPaise).toBe(104_900);
-    expect(up.roundOffPaise).toBe(4);
-    // ₹1,001: CGST/SGST ₹25.03 each → ₹1,051.06 → ₹1,051 (−0.06)
-    const down = calculateBill([{ unitPricePaise: 100_100, quantity: 1 }], RATES, { dineIn: false });
-    expect(down.totalPaise).toBe(105_100);
-    expect(down.roundOffPaise).toBe(-6);
+  it('rounds VAT to the nearest penny', () => {
+    // £0.99 × 20/120 = 16.5p → 17p
+    expect(calculateBill([{ unitPricePaise: 99, quantity: 1 }], RATES, { dineIn: false }).vatPaise).toBe(17);
+    // £0.98 × 20/120 = 16.33p → 16p
+    expect(calculateBill([{ unitPricePaise: 98, quantity: 1 }], RATES, { dineIn: false }).vatPaise).toBe(16);
   });
 
-  it('applies a discount before service charge and GST', () => {
-    const bill = calculateBill([{ unitPricePaise: 100_000, quantity: 1 }], RATES, { dineIn: true, discountPaise: 10_000 });
-    expect(bill.serviceChargePaise).toBe(9_000); // 10% of ₹900
-    expect(bill.cgstPaise).toBe(2_475); // 2.5% of ₹990
+  it('applies a discount before service charge and VAT', () => {
+    const bill = calculateBill([{ unitPricePaise: 1_200, quantity: 1 }], RATES, { dineIn: true, discountPaise: 200 });
+    expect(bill.serviceChargePaise).toBe(100); // 10% of £10
+    expect(bill.vatPaise).toBe(167); // £10 × 20/120
+    expect(bill.totalPaise).toBe(1_100);
   });
 });
 
@@ -97,11 +94,10 @@ describe('OrderService bill lifecycle', () => {
     discountPaise: 0,
     serviceChargeWaived: false,
     // Snapshot taken when the bill was opened
-    cgstRate: dec(2.5),
-    sgstRate: dec(2.5),
+    vatRate: dec(20),
     serviceChargeRate: dec(10),
     items: TABLE_1_ITEMS.map((i, idx) => ({ ...i, id: `item-${idx}`, status: 'SENT_TO_KITCHEN' })),
-    outlet: { cgstRateDecimal: dec(2.5), sgstRateDecimal: dec(2.5), serviceTaxRateDecimal: dec(10), gstRegistrationType: 'REGULAR' },
+    outlet: { vatRateDecimal: dec(20), serviceTaxRateDecimal: dec(10), vatRegistered: true },
     payments: [],
     ...overrides,
   });
@@ -111,49 +107,50 @@ describe('OrderService bill lifecycle', () => {
     (prisma.order.update as jest.Mock).mockImplementation(({ data }: any) => ({ ...openTable1(), ...data }));
   });
 
-  it('recalculates the whole bill after a new round (fixes the missing service charge)', async () => {
+  it('recalculates the whole bill after a new round', async () => {
     (prisma.order.findUnique as jest.Mock).mockResolvedValue(openTable1());
     await service.recalculateOrder('order-1');
     const saved = (prisma.order.update as jest.Mock).mock.calls[0][0].data;
     expect(saved).toMatchObject({
-      subtotalPaise: 145_000,
-      serviceTaxPaise: 14_500,
-      cgstPaise: 3_988,
-      sgstPaise: 3_988,
-      taxPaise: 3_988 + 3_988 + 14_500,
-      roundOffPaise: 24,
-      totalPaise: 167_500,
+      subtotalPaise: 1_600,
+      serviceTaxPaise: 160,
+      vatPaise: 267,
+      taxPaise: 267 + 160,
+      roundOffPaise: 0,
+      totalPaise: 1_760,
     });
+    expect(Number(saved.vatRate)).toBe(20);
   });
 
   it('keeps the rates of the open bill even if outlet settings change mid-service', async () => {
     (prisma.order.findUnique as jest.Mock).mockResolvedValue(
-      openTable1({ outlet: { cgstRateDecimal: dec(9), sgstRateDecimal: dec(9), serviceTaxRateDecimal: dec(0), gstRegistrationType: 'REGULAR' } })
+      openTable1({ outlet: { vatRateDecimal: dec(5), serviceTaxRateDecimal: dec(0), vatRegistered: true } })
     );
     await service.recalculateOrder('order-1');
     const saved = (prisma.order.update as jest.Mock).mock.calls[0][0].data;
-    expect(saved.serviceTaxPaise).toBe(14_500);
-    expect(saved.cgstPaise).toBe(3_988);
+    expect(saved.serviceTaxPaise).toBe(160);
+    expect(saved.vatPaise).toBe(267);
   });
 
   it('bills created before snapshots existed take the outlet rates once', async () => {
-    (prisma.order.findUnique as jest.Mock).mockResolvedValue(openTable1({ cgstRate: null, sgstRate: null, serviceChargeRate: null }));
+    (prisma.order.findUnique as jest.Mock).mockResolvedValue(openTable1({ vatRate: null, serviceChargeRate: null }));
     await service.recalculateOrder('order-1');
     const saved = (prisma.order.update as jest.Mock).mock.calls[0][0].data;
     expect(Number(saved.serviceChargeRate)).toBe(10);
-    expect(saved.totalPaise).toBe(167_500);
+    expect(Number(saved.vatRate)).toBe(20);
+    expect(saved.totalPaise).toBe(1_760);
   });
 
   it('settlement records a payment for the final recalculated total', async () => {
     // findOrderById (old, wrongly-added amounts) → recalculation → payment of the correct total
-    (prisma.order.findFirst as jest.Mock).mockResolvedValue({ ...openTable1(), totalPaise: 166_750 });
+    (prisma.order.findFirst as jest.Mock).mockResolvedValue({ ...openTable1(), totalPaise: 1_700 });
     (prisma.order.findUnique as jest.Mock).mockResolvedValue(openTable1());
 
-    // Cash: UPI / card settle only with the cashier's "received" confirmation (tests/split-payment.test.ts)
+    // Cash: card settles only with the cashier's "received" confirmation (tests/split-payment.test.ts)
     await service.updateOrderStatus('outlet-1', 'order-1', 'COMPLETED', undefined, 'user-1', 'CASH');
 
     expect(prisma.payment.create).toHaveBeenCalledWith({
-      data: { orderId: 'order-1', amountPaise: 167_500, method: 'CASH', status: 'CONFIRMED' },
+      data: { orderId: 'order-1', amountPaise: 1_760, method: 'CASH', status: 'CONFIRMED' },
     });
   });
 
@@ -201,16 +198,15 @@ describe('OrderService bill lifecycle', () => {
   });
 });
 
-describe('Dashboard: GST collected excludes service charge', () => {
-  it('reports CGST + SGST as GST and service charge separately', async () => {
+describe('Dashboard: VAT collected excludes service charge', () => {
+  it('reports VAT and service charge separately', async () => {
     (prisma.order.findMany as jest.Mock).mockImplementation(({ where }: any) =>
       where.status === 'COMPLETED' && where.createdAt.gte > new Date('2026-01-01')
-        ? [{ id: 'o1', subtotalPaise: 145_000, discountPaise: 0, cgstPaise: 3_988, sgstPaise: 3_988, serviceTaxPaise: 14_500 }]
+        ? [{ id: 'o1', subtotalPaise: 160_000, discountPaise: 0, vatPaise: 26_667, serviceTaxPaise: 16_000 }]
         : []
     );
     const kpis: any = await new DashboardService().getKpis('outlet-1', 'biz-1', 'TODAY');
-    expect(kpis.taxCollected.value).toBe('₹80'); // ₹79.76 → shown rounded
-    expect(kpis.serviceCharge.value).toBe('₹145');
-    expect(kpis.totalRevenue.value).toBe('₹1,450');
+    expect(kpis.taxCollected.value).toBe('£267'); // £266.67 → shown rounded
+    expect(kpis.serviceCharge.value).toBe('£160');
   });
 });

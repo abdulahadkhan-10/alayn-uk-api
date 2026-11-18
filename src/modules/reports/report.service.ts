@@ -27,7 +27,7 @@ async function loadPeriod(range: DateRange, outletIds: string[], sources?: Chann
       },
       select: {
         id: true, outletId: true, createdAt: true, source: true, status: true,
-        subtotalPaise: true, discountPaise: true, cgstPaise: true, sgstPaise: true, serviceTaxPaise: true,
+        subtotalPaise: true, discountPaise: true, vatPaise: true, serviceTaxPaise: true,
         items: { select: { menuItemId: true, quantity: true, subtotalPaise: true } },
         payments: { where: { status: 'CONFIRMED' }, select: { method: true, amountPaise: true } },
       },

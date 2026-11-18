@@ -82,7 +82,7 @@ export class AuthRepository {
       contactPerson: string;
       address: string;
       category?: string;
-      gstNumber?: string;
+      vatNumber?: string;
       deliveryTerms?: string;
     };
   }) {
@@ -105,7 +105,7 @@ export class AuthRepository {
           email: data.user.email,
           address: data.supplier.address,
           category: data.supplier.category,
-          gstNumber: data.supplier.gstNumber,
+          vatNumber: data.supplier.vatNumber,
           deliveryTerms: data.supplier.deliveryTerms,
           type: 'ONLINE',
           userId: user.id,

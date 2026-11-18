@@ -43,6 +43,6 @@ export const updateSupplierProfileSchema = z.object({
   email: z.string().trim().email().optional(),
   address: z.string().trim().min(3).max(300).optional(),
   category: z.string().trim().min(2).max(100).optional(),
-  gstNumber: z.string().trim().max(30).optional(),
+  vatNumber: z.string().trim().max(30).optional(),
   deliveryTerms: z.string().trim().max(200).optional(),
 });

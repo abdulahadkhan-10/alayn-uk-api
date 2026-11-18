@@ -411,7 +411,7 @@ describe('Alayn Platform Business Logic Tests', () => {
         totalPaise: 1000,
         payments: [{ status: 'CONFIRMED', amountPaise: 1000 }],
         items: [{ menuItemId: 'menu-1', quantity: 2, unitPricePaise: 500, status: 'ORDERED' }],
-        outlet: { cgstRate: 0, sgstRate: 0, serviceChargeRate: 0, gstRegistrationType: 'REGULAR' },
+        outlet: { vatRateDecimal: 0, serviceTaxRateDecimal: 0, vatRegistered: true },
       };
       (prisma.order.findFirst as jest.Mock).mockResolvedValue(mockOrder);
       // Recalculation reads the open bill; the response is read back after the bill was claimed as COMPLETED
@@ -436,7 +436,7 @@ describe('Alayn Platform Business Logic Tests', () => {
         totalPaise: 1000,
         payments: [{ status: 'CONFIRMED', amountPaise: 500 }], // ₹5 of ₹10 paid
         items: [{ menuItemId: 'menu-1', quantity: 2, unitPricePaise: 500, status: 'ORDERED' }],
-        outlet: { cgstRate: 0, sgstRate: 0, serviceChargeRate: 0, gstRegistrationType: 'REGULAR' },
+        outlet: { vatRateDecimal: 0, serviceTaxRateDecimal: 0, vatRegistered: true },
       };
       (prisma.order.findFirst as jest.Mock).mockResolvedValue(mockOrder);
       // Recalculation reads the open bill; the response is read back after the bill was claimed as COMPLETED
