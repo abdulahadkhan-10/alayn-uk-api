@@ -51,11 +51,6 @@ const METHOD_LABELS: Record<string, string> = {
   DELIVEROO: 'Deliveroo',
   UBER_EATS: 'Uber Eats',
   JUST_EAT: 'Just Eat',
-  // Legacy methods, kept so old bills still read correctly
-  UPI: 'UPI',
-  SWIGGY: 'Swiggy',
-  ZOMATO: 'Zomato',
-  EAZYDINER: 'EazyDiner',
 };
 
 /** Sum of payments that count towards the bill (confirmed only) */

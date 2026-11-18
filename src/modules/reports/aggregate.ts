@@ -22,7 +22,7 @@ export interface RawOrder {
   id: string; outletId: string; createdAt: Date; source: Channel; status: string;
   subtotalPaise: number; discountPaise: number; vatPaise: number; serviceTaxPaise: number;
   items: { menuItemId: string; quantity: number; subtotalPaise: number }[];
-  payments: { method: 'CARD' | 'CASH' | 'DELIVEROO' | 'UBER_EATS' | 'JUST_EAT' | 'UPI' | 'SWIGGY' | 'ZOMATO' | 'EAZYDINER'; amountPaise: number }[]; // CONFIRMED payments only
+  payments: { method: 'CARD' | 'CASH' | 'DELIVEROO' | 'UBER_EATS' | 'JUST_EAT'; amountPaise: number }[]; // CONFIRMED payments only
 }
 
 export interface RawWaste {
@@ -75,11 +75,6 @@ const PAYMENT_LABELS: Record<string, string> = {
   DELIVEROO: 'Deliveroo',
   UBER_EATS: 'Uber Eats',
   JUST_EAT: 'Just Eat',
-  // Legacy methods, kept so old bills still report correctly
-  UPI: 'UPI',
-  SWIGGY: 'Swiggy',
-  ZOMATO: 'Zomato',
-  EAZYDINER: 'EazyDiner',
 };
 const WASTE_LABELS: Record<string, string> = { SPOILAGE: 'Spoilage', OVER_PREP: 'Over-preparation', RETURN: 'Returned', ERROR: 'Mistake' };
 const MIN_ITEM_MOVE_PAISE = 50000; // £500

@@ -26,19 +26,19 @@ describe('validateSettlementPayments', () => {
     const recorded = validateSettlementPayments(
       [
         { method: 'CASH', amountPaise: 10_000 },
-        { method: 'UPI', amountPaise: 18_500, reference: ' 4123 ', verified: true },
+        { method: 'CARD', amountPaise: 18_500, reference: ' 4123 ', verified: true },
       ],
       28_500
     );
     expect(recorded).toEqual([
       { method: 'CASH', amountPaise: 10_000, reference: null, isOnline: false },
-      { method: 'UPI', amountPaise: 18_500, reference: '4123', isOnline: true },
+      { method: 'CARD', amountPaise: 18_500, reference: '4123', isOnline: true },
     ]);
   });
 
   it('refuses payments that fall short of the balance, naming the gap', () => {
     expect(() =>
-      validateSettlementPayments([{ method: 'CASH', amountPaise: 10_000 }, { method: 'UPI', amountPaise: 18_450, verified: true }], 28_500)
+      validateSettlementPayments([{ method: 'CASH', amountPaise: 10_000 }, { method: 'CARD', amountPaise: 18_450, verified: true }], 28_500)
     ).toThrow(expect.objectContaining({ code: 'PAYMENT_AMOUNT_MISMATCH', message: expect.stringContaining('₹0.50 is still unallocated') }));
   });
 
@@ -48,7 +48,7 @@ describe('validateSettlementPayments', () => {
     );
   });
 
-  it.each(['UPI', 'CARD'] as const)('needs an unverified %s part to be confirmed received', (method) => {
+  it.each(['CARD'] as const)('needs an unverified %s part to be confirmed received', (method) => {
     expect(() =>
       validateSettlementPayments([{ method: 'CASH', amountPaise: 10_000 }, { method, amountPaise: 18_500 }], 28_500)
     ).toThrow(expect.objectContaining({ code: 'PAYMENT_NOT_VERIFIED' }));
@@ -74,7 +74,7 @@ describe('request validation', () => {
     expect(
       updateOrderStatusSchema.safeParse({
         status: 'COMPLETED',
-        payments: [{ method: 'UPI', amountPaise: 18_500, verified: true, reference: 'UTR123' }],
+        payments: [{ method: 'CARD', amountPaise: 18_500, verified: true, reference: 'UTR123' }],
         idempotencyKey: 'settle-7f1c2a9e',
       }).success
     ).toBe(true);
@@ -85,9 +85,9 @@ describe('summarizePayments', () => {
   it('reports a split bill as SPLIT with each confirmed part, ignoring voided intents', () => {
     const summary = summarizePayments(
       [
-        { method: 'UPI', amountPaise: 28_500, status: 'VOID' },
+        { method: 'CARD', amountPaise: 28_500, status: 'VOID' },
         { method: 'CASH', amountPaise: 10_000, status: 'CONFIRMED' },
-        { method: 'UPI', amountPaise: 18_500, status: 'CONFIRMED', reference: 'UTR9' },
+        { method: 'CARD', amountPaise: 18_500, status: 'CONFIRMED', reference: 'UTR9' },
       ],
       28_500
     );
@@ -99,7 +99,7 @@ describe('summarizePayments', () => {
       balanceDue: 0,
       paymentSplits: [
         { method: 'CASH', amount: 100, reference: null },
-        { method: 'UPI', amount: 185, reference: 'UTR9' },
+        { method: 'CARD', amount: 185, reference: 'UTR9' },
       ],
     });
   });
@@ -111,8 +111,8 @@ describe('summarizePayments', () => {
       isSplitPayment: false,
     });
     // Open bill with only the checkout's intent
-    expect(summarizePayments([{ method: 'UPI', amountPaise: 28_500, status: 'PENDING' }], 28_500)).toMatchObject({
-      paymentMethod: 'UPI',
+    expect(summarizePayments([{ method: 'CARD', amountPaise: 28_500, status: 'PENDING' }], 28_500)).toMatchObject({
+      paymentMethod: 'CARD',
       paymentStatus: 'PENDING',
       balanceDue: 285,
     });
@@ -138,14 +138,14 @@ describe('settling a bill with a split payment', () => {
     serviceChargeRate: dec(0),
     items: [{ id: 'item-1', unitPricePaise: 28_500, quantity: 1, status: 'SERVED' }],
     outlet: { businessId: 'biz-1', vatRateDecimal: dec(20), serviceTaxRateDecimal: dec(0), vatRegistered: true },
-    payments: [{ id: 'p0', method: 'UPI', amountPaise: 28_500, status: 'PENDING' }],
+    payments: [{ id: 'p0', method: 'CARD', amountPaise: 28_500, status: 'PENDING' }],
     ...overrides,
   });
 
   const settle = (
     payments: any[] | undefined,
     idempotencyKey?: string,
-    paymentMethod?: 'CASH' | 'CARD' | 'UPI',
+    paymentMethod?: 'CASH' | 'CARD',
     allowDuplicateReference?: boolean
   ) =>
     service.updateOrderStatus(
@@ -166,7 +166,7 @@ describe('settling a bill with a split payment', () => {
     await settle(
       [
         { method: 'CASH', amountPaise: 10_000 },
-        { method: 'UPI', amountPaise: 18_500, reference: 'UTR42', verified: true },
+        { method: 'CARD', amountPaise: 18_500, reference: 'UTR42', verified: true },
       ],
       'settle-key-1'
     );
@@ -181,7 +181,7 @@ describe('settling a bill with a split payment', () => {
     const created = (prisma.payment.create as jest.Mock).mock.calls.map(([arg]) => arg.data);
     expect(created).toEqual([
       { orderId: 'order-1', amountPaise: 10_000, method: 'CASH', status: 'CONFIRMED', reference: null },
-      expect.objectContaining({ orderId: 'order-1', amountPaise: 18_500, method: 'UPI', status: 'CONFIRMED', reference: 'UTR42', verifiedById: 'cashier-1', verifiedAt: expect.any(Date) }),
+      expect.objectContaining({ orderId: 'order-1', amountPaise: 18_500, method: 'CARD', status: 'CONFIRMED', reference: 'UTR42', verifiedById: 'cashier-1', verifiedAt: expect.any(Date) }),
     ]);
     expect((prisma.orderStatusHistory.create as jest.Mock).mock.calls[0][0].data.comment).toContain('Paid Cash ₹100.00 + UPI ₹185.00');
   });
@@ -190,13 +190,13 @@ describe('settling a bill with a split payment', () => {
     (prisma.payment.findFirst as jest.Mock).mockResolvedValue({ amountPaise: 18_500, order: { orderNumber: 'ORD-41' } });
     const split = [
       { method: 'CASH', amountPaise: 10_000 },
-      { method: 'UPI', amountPaise: 18_500, reference: 'UTR42', verified: true },
+      { method: 'CARD', amountPaise: 18_500, reference: 'UTR42', verified: true },
     ];
 
     await expect(settle(split)).rejects.toMatchObject({ code: 'DUPLICATE_PAYMENT_REFERENCE', statusCode: 409 });
     await expect(settle(split)).rejects.toThrow('UPI reference UTR42 was already used on bill #ORD-41 (₹185.00)');
     expect(prisma.payment.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: { method: 'UPI', reference: 'UTR42', status: 'CONFIRMED', orderId: { not: 'order-1' }, order: { outletId: 'outlet-1' } },
+      where: { method: 'CARD', reference: 'UTR42', status: 'CONFIRMED', orderId: { not: 'order-1' }, order: { outletId: 'outlet-1' } },
     }));
     expect(prisma.payment.create).not.toHaveBeenCalled();
   });
@@ -206,7 +206,7 @@ describe('settling a bill with a split payment', () => {
     await settle(
       [
         { method: 'CASH', amountPaise: 10_000 },
-        { method: 'UPI', amountPaise: 18_500, reference: 'UTR42', verified: true },
+        { method: 'CARD', amountPaise: 18_500, reference: 'UTR42', verified: true },
       ],
       undefined,
       undefined,
@@ -219,29 +219,29 @@ describe('settling a bill with a split payment', () => {
   it('stops when the same UTR is typed on two parts of one bill', async () => {
     await expect(
       settle([
-        { method: 'UPI', amountPaise: 10_000, reference: 'UTR42', verified: true },
-        { method: 'UPI', amountPaise: 18_500, reference: 'UTR42', verified: true },
+        { method: 'CARD', amountPaise: 10_000, reference: 'UTR42', verified: true },
+        { method: 'CARD', amountPaise: 18_500, reference: 'UTR42', verified: true },
       ])
     ).rejects.toMatchObject({ code: 'DUPLICATE_PAYMENT_REFERENCE' });
     expect(prisma.payment.create).not.toHaveBeenCalled();
   });
 
   it('rejects a split that does not cover the bill, before recording any payment', async () => {
-    await expect(settle([{ method: 'CASH', amountPaise: 10_000 }, { method: 'UPI', amountPaise: 18_000, verified: true }])).rejects.toMatchObject({
+    await expect(settle([{ method: 'CASH', amountPaise: 10_000 }, { method: 'CARD', amountPaise: 18_000, verified: true }])).rejects.toMatchObject({
       code: 'PAYMENT_AMOUNT_MISMATCH',
     });
     expect(prisma.payment.create).not.toHaveBeenCalled();
   });
 
   it('rejects an unverified UPI part', async () => {
-    await expect(settle([{ method: 'CASH', amountPaise: 10_000 }, { method: 'UPI', amountPaise: 18_500 }])).rejects.toMatchObject({
+    await expect(settle([{ method: 'CASH', amountPaise: 10_000 }, { method: 'CARD', amountPaise: 18_500 }])).rejects.toMatchObject({
       code: 'PAYMENT_NOT_VERIFIED',
     });
     expect(prisma.payment.create).not.toHaveBeenCalled();
   });
 
   it('only asks for the balance when part was already paid (QR UPI)', async () => {
-    const partlyPaid = openBill({ payments: [{ id: 'p0', method: 'UPI', amountPaise: 8_500, status: 'CONFIRMED' }] });
+    const partlyPaid = openBill({ payments: [{ id: 'p0', method: 'CARD', amountPaise: 8_500, status: 'CONFIRMED' }] });
     (prisma.order.findUnique as jest.Mock).mockResolvedValue(partlyPaid);
     (prisma.order.update as jest.Mock).mockImplementation(({ data }: any) => ({ ...partlyPaid, ...data }));
 
@@ -279,19 +279,19 @@ describe('settling a bill with a split payment', () => {
   });
 
   it('refuses a single UPI or card settle the cashier has not confirmed, leaving the bill open', async () => {
-    await expect(settle(undefined, undefined, 'UPI')).rejects.toMatchObject({ code: 'PAYMENT_NOT_VERIFIED', statusCode: 400 });
+    await expect(settle(undefined, undefined, 'CARD')).rejects.toMatchObject({ code: 'PAYMENT_NOT_VERIFIED', statusCode: 400 });
     await expect(settle(undefined, undefined, 'CARD')).rejects.toThrow('Confirm the card payment of ₹285.00 was received before settling.');
     expect(prisma.payment.create).not.toHaveBeenCalled();
   });
 
   it('a confirmed single UPI payment records the UTR and who checked it', async () => {
-    await settle([{ method: 'UPI', amountPaise: 28_500, reference: '412345678901', verified: true }], 'settle-key-1', 'UPI');
+    await settle([{ method: 'CARD', amountPaise: 28_500, reference: '412345678901', verified: true }], 'settle-key-1', 'CARD');
 
     expect(prisma.payment.create).toHaveBeenCalledTimes(1);
     expect(prisma.payment.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         amountPaise: 28_500,
-        method: 'UPI',
+        method: 'CARD',
         status: 'CONFIRMED',
         reference: '412345678901',
         verifiedById: 'cashier-1',

@@ -7,9 +7,6 @@ import { logger } from './logger';
 export async function repairAndSyncMigrations() {
   try {
     // 1. Clean drift and ensure enum values
-    await prisma.$executeRawUnsafe(`ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'SWIGGY';`);
-    await prisma.$executeRawUnsafe(`ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'ZOMATO';`);
-    await prisma.$executeRawUnsafe(`ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'EAZYDINER';`);
     await prisma.$executeRawUnsafe(`ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'DELIVEROO';`);
     await prisma.$executeRawUnsafe(`ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'UBER_EATS';`);
     await prisma.$executeRawUnsafe(`ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'JUST_EAT';`);

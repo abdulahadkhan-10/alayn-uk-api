@@ -73,7 +73,7 @@ export class CashfreeService {
         cf_order_id: `cf_mock_${Date.now()}`,
         order_id: params.orderId,
         entity: 'order',
-        order_currency: params.orderCurrency || 'INR',
+        order_currency: params.orderCurrency || 'GBP',
         order_amount: params.orderAmount,
         order_status: 'ACTIVE',
         payment_session_id: `session_mock_${Date.now()}_${params.orderId}`,
@@ -86,7 +86,7 @@ export class CashfreeService {
       const payload = {
         order_id: params.orderId,
         order_amount: params.orderAmount,
-        order_currency: params.orderCurrency || 'INR',
+        order_currency: params.orderCurrency || 'GBP',
         customer_details: {
           customer_id: params.customerDetails.customerId,
           customer_email: params.customerDetails.customerEmail || 'owner@alayn.app',
@@ -135,7 +135,7 @@ export class CashfreeService {
         cf_order_id: `cf_mock_${orderId}`,
         order_id: orderId,
         entity: 'order',
-        order_currency: 'INR',
+        order_currency: 'GBP',
         order_amount: 1999.00,
         order_status: 'PAID',
         payment_session_id: `session_mock_${orderId}`,
@@ -167,8 +167,8 @@ export class CashfreeService {
     if (!this.appId || !this.secretKey || this.appId.startsWith('TEST_APP_ID')) {
       return [{
         payment_status: 'SUCCESS',
-        payment_method: 'UPI',
-        payment_currency: 'INR',
+        payment_method: 'CARD',
+        payment_currency: 'GBP',
         payment_amount: 1999.00,
         cf_payment_id: `cf_pay_${Date.now()}`
       }];

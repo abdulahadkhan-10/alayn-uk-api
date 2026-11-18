@@ -114,11 +114,6 @@ enum PaymentMethod {
   DELIVEROO
   UBER_EATS
   JUST_EAT
-  // Legacy values: only on payments recorded before the UK launch. Never written by new code.
-  UPI
-  SWIGGY
-  ZOMATO
-  EAZYDINER
 }
 
 enum PaymentStatus {

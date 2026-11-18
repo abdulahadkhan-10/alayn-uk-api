@@ -62,17 +62,17 @@ describe('asking for the bill from the table QR', () => {
   it('asks only for what is still due and keeps the UTR of a UPI payment', async () => {
     openBill([{ status: 'CONFIRMED', amountPaise: 50_000, method: 'CASH' }]);
 
-    await service.requestTableBill('table-4-token', { paymentMethod: 'UPI', paymentRef: ' 412345678901 ' });
+    await service.requestTableBill('table-4-token', { paymentMethod: 'CARD', paymentRef: ' 412345678901 ' });
 
     expect(prisma.payment.create).toHaveBeenCalledWith({
-      data: { orderId: 'bill-1', amountPaise: 181_000, method: 'UPI', status: 'PENDING', reference: '412345678901' },
+      data: { orderId: 'bill-1', amountPaise: 181_000, method: 'CARD', status: 'PENDING', reference: '412345678901' },
     });
   });
 
   it('replaces an earlier choice instead of adding to it', async () => {
     openBill([{ status: 'PENDING', amountPaise: 115_500, method: 'CASH' }]);
 
-    await service.requestTableBill('table-4-token', { paymentMethod: 'UPI' });
+    await service.requestTableBill('table-4-token', { paymentMethod: 'CARD' });
 
     expect(prisma.payment.updateMany).toHaveBeenCalledWith({
       where: { orderId: 'bill-1', status: 'PENDING' },
@@ -84,7 +84,7 @@ describe('asking for the bill from the table QR', () => {
   });
 
   it('records nothing when the bill is already paid', async () => {
-    openBill([{ status: 'CONFIRMED', amountPaise: 231_000, method: 'UPI' }]);
+    openBill([{ status: 'CONFIRMED', amountPaise: 231_000, method: 'CARD' }]);
 
     await service.requestTableBill('table-4-token', { paymentMethod: 'CASH' });
 
@@ -108,7 +108,7 @@ describe('asking for the bill from the table QR', () => {
   it('refuses UPI when the restaurant has no UPI ID', async () => {
     tokenFor({ ...OUTLET, upiId: null });
 
-    await expect(service.requestTableBill('table-4-token', { paymentMethod: 'UPI' })).rejects.toMatchObject({ code: 'UPI_NOT_AVAILABLE' });
+    await expect(service.requestTableBill('table-4-token', { paymentMethod: 'CARD' })).rejects.toMatchObject({ code: 'UPI_NOT_AVAILABLE' });
   });
 
   it('rejects expired table codes', async () => {
@@ -120,6 +120,6 @@ describe('asking for the bill from the table QR', () => {
   it('validates the request', () => {
     expect(tableBillRequestSchema.safeParse({ paymentMethod: 'CARD' }).success).toBe(true);
     expect(tableBillRequestSchema.safeParse({ paymentMethod: 'WALLET' }).success).toBe(false);
-    expect(tableBillRequestSchema.safeParse({ paymentMethod: 'UPI', paymentRef: 'x'.repeat(65) }).success).toBe(false);
+    expect(tableBillRequestSchema.safeParse({ paymentMethod: 'CARD', paymentRef: 'x'.repeat(65) }).success).toBe(false);
   });
 });

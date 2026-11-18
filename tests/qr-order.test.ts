@@ -82,7 +82,7 @@ describe('ordering from the table QR', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('records no payment when a diner orders, even if an older page sends one', async () => {
-    await qrOrder({ paymentMethod: 'UPI', paymentStatus: 'CONFIRMED', paymentRef: ' 412345678901 ' });
+    await qrOrder({ paymentMethod: 'CARD', paymentStatus: 'CONFIRMED', paymentRef: ' 412345678901 ' });
 
     expect(prisma.payment.create).not.toHaveBeenCalled();
     expect(createSpy.mock.calls[0][1]).toMatchObject({ placedByName: 'Customer (QR)', placedByRole: 'QR', totalPaise: 110_000 });
@@ -98,7 +98,7 @@ describe('ordering from the table QR', () => {
   it('a second round joins the open bill without recording a payment', async () => {
     (prisma.order.findFirst as jest.Mock).mockResolvedValue({ id: 'open-bill', placedByName: 'Customer (QR)' });
 
-    await qrOrder({ paymentMethod: 'UPI', paymentRef: '998877665544' });
+    await qrOrder({ paymentMethod: 'CARD', paymentRef: '998877665544' });
 
     expect(appendSpy).toHaveBeenCalledWith('open-bill', expect.any(Array), expect.anything());
     expect(prisma.payment.create).not.toHaveBeenCalled();
@@ -106,7 +106,7 @@ describe('ordering from the table QR', () => {
   });
 
   it('saves the order and its items in one transaction', async () => {
-    await qrOrder({ paymentMethod: 'UPI', paymentRef: '412345678901' });
+    await qrOrder({ paymentMethod: 'CARD', paymentRef: '412345678901' });
 
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     // The table row is locked before looking for its open bill, so two first orders can't open two bills

@@ -33,7 +33,7 @@ const currentOrders: RawOrder[] = [
   order({ outletId: 'o1', createdAt: ist(17, 13), source: 'TABLE', subtotalPaise: 100000, discountPaise: 10000,
     vatPaise: 4500, serviceTaxPaise: 5000,
     items: [{ menuItemId: 'A', quantity: 2, subtotalPaise: 60000 }, { menuItemId: 'C', quantity: 1, subtotalPaise: 40000 }],
-    payments: [{ method: 'UPI', amountPaise: 60000 }, { method: 'CASH', amountPaise: 40000 }] }),
+    payments: [{ method: 'CARD', amountPaise: 60000 }, { method: 'CASH', amountPaise: 40000 }] }),
   order({ outletId: 'o1', createdAt: ist(17, 19), source: 'QR', subtotalPaise: 50000, vatPaise: 2500,
     items: [{ menuItemId: 'B', quantity: 2, subtotalPaise: 50000 }],
     payments: [{ method: 'CARD', amountPaise: 52500 }] }),
@@ -42,13 +42,13 @@ const currentOrders: RawOrder[] = [
     payments: [{ method: 'CASH', amountPaise: 84000 }] }),
   order({ outletId: 'o1', createdAt: ist(18, 12, 30), source: 'DELIVERY', subtotalPaise: 120000, discountPaise: 20000,
     items: [{ menuItemId: 'C', quantity: 3, subtotalPaise: 120000 }],
-    payments: [{ method: 'UPI', amountPaise: 100000 }] }),
+    payments: [{ method: 'CARD', amountPaise: 100000 }] }),
   order({ outletId: 'o2', createdAt: ist(18, 15), source: 'TABLE', subtotalPaise: 60000,
     items: [{ menuItemId: 'A', quantity: 2, subtotalPaise: 60000 }],
-    payments: [{ method: 'UPI', amountPaise: 60000 }] }),
+    payments: [{ method: 'CARD', amountPaise: 60000 }] }),
   order({ outletId: 'o1', createdAt: ist(18, 21), source: 'QR', subtotalPaise: 30000,
     items: [{ menuItemId: 'B', quantity: 1, subtotalPaise: 30000 }],
-    payments: [{ method: 'UPI', amountPaise: 30000 }] }),
+    payments: [{ method: 'CARD', amountPaise: 30000 }] }),
   order({ outletId: 'o1', createdAt: ist(18, 18), source: 'TABLE', status: 'CANCELLED', subtotalPaise: 40000, discountPaise: 5000,
     items: [{ menuItemId: 'A', quantity: 1, subtotalPaise: 40000 }] }),
 ];
@@ -124,9 +124,9 @@ describe('aggregate', () => {
 
   it('split payments count each method', () => {
     const r = run();
-    const upi = r.payments.find((p) => p.key === 'UPI')!;
+    const card = r.payments.find((p) => p.key === 'CARD')!;
     const cash = r.payments.find((p) => p.key === 'CASH')!;
-    expect(upi.current).toEqual({ netSalesPaise: 250000, orders: 4 });
+    expect(card.current).toEqual({ netSalesPaise: 302500, orders: 5 });
     expect(cash.current).toEqual({ netSalesPaise: 124000, orders: 2 });
     expect(r.notes).toContain('Payments are amounts received, including tax');
   });
